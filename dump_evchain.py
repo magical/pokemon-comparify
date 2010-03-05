@@ -23,7 +23,7 @@ def extract_moves(conn, pokemon_id):
         WHERE pm.version_group_id = ?
             AND p.evolution_chain_id = ?
             AND pm.pokemon_move_method_id = 1
-        ORDER BY p.id, pm.level, 'pm.order'
+        ORDER BY p.id, pm.level, pm."order"
     """
     q = conn.execute(query, [LATEST_VERSION, evid])
     movesets = []
