@@ -27,6 +27,23 @@ Added attack at level of evolution
     Example: Ninjask
     
     
+
+HOW THE ALGORITHM WORKS
+
+Generally, it works by going through the list of moves and "locking" them
+when it feels it has a good match.
+
+It makes 4 passes through the move list, with decreasing standards for what
+is a match.
+
+Pass 1 locks when both the level and the move match.
+Pass 2 locks when the move matches.
+Pass 3 locks when the level matches.
+
+The final pass looks for "gaps" where some moves aren't locked. If the gap in
+one list is the same length as the gap in another list, it locks all those
+moves. (Not yet implemented.)
+
 """
 
 #Hungarian Notation:
