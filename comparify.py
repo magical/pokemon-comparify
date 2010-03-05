@@ -141,6 +141,8 @@ def align(left, right):
     else:
         alignment = align_full(left, right)
 
+    alignment = fill_alignment(alignment, left, right)
+    #tweak_levels(alignment, left, right)
 
     return apply_alignment(alignment, left, right)
 
@@ -212,22 +214,51 @@ def align_full(left, right):
 
     return alignment
 
+def tweak_levels(alignment, left, right):
+    i = 0
+    while i + 1 < len(alignment):
+        if alignment[i][0] is None and alignment[i][1] is not None \
+            and i < len(alignment) and alignment[i + 1][1] is None:
+            # if the level on the left of the next entry 
+            #    <= the level on the right of this entry
+            mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
+            if mLeft[0] <= right[alignment[i][1]][0]:
+                alignment[i], alignment[i+1] = alignment[i+1], alignment[i]
+                i += 1
+        i += 1
+    return
+
+def fill_gaps(alignment, left, right):
+    pass
+
+def fill_alignment(alignment, left, right):
+    liLeft = 0
+    newalignment = []
+    for iLeft, iRight in alignment:
+        if iLeft is None:
+            newalignment.append((None, iRight))
+        else:
+            while liLeft < iLeft:
+                newalignment.append((liLeft, None))
+                liLeft += 1
+            newalignment.append((iLeft, iRight))
+            liLeft = iLeft + 1
+    for iLeft in range(liLeft, len(left)):
+        newalignment.append((iLeft, None))
+    return newalignment
+
+
 def apply_alignment(alignment, left, right):
     final = []
 
     cms = len(left[0])
-    liLeft = 0
     for iLeft, iRight in alignment:
         if iLeft is None:
             final.append([None] * cms + [right[iRight]])
+        elif iRight is None:
+            final.append(left[iLeft] + [None])
         else:
-            while liLeft < iLeft:
-                final.append(left[liLeft] + [None])
-                liLeft += 1
             final.append(left[iLeft] + [right[iRight]])
-            liLeft = iLeft + 1
-    for iLeft in range(liLeft, len(left)):
-        final.append(left[iLeft] + [None])
 
     return final
 
