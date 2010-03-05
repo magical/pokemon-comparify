@@ -33,14 +33,12 @@ HOW THE ALGORITHM WORKS
 Generally, it works by going through the list of moves and "locking" them
 when it feels it has a good match.
 
-It makes 4 passes through the move list, with decreasing standards for what
+It makes 3 passes through the move list, with decreasing standards for what
 is a match.
 
 Pass 1 locks when both the level and the move match.
-Pass 2 goes through the two lists in lock-step, locking when the levels match,
-       but aborting as soon as they do not.
-Pass 3 locks when the move matches.
-Pass 4 locks when the level matches.
+Pass 2 locks when the move matches. (If the 2 lists share > half of their moves)
+Pass 3 locks when the level matches.
 
 The final pass looks for "gaps" where some moves aren't locked. If the gap in
 one list is the same length as the gap in another list, it locks all those
@@ -125,10 +123,30 @@ def lock_while(alignment, left, right, liLeft, liRight, key):
 
     return
 
+key_levels = lambda x: x[0]
+key_moves = lambda x: x[1]
+
 def align(left, right):
     """
     left :: [[(level, move)]]
     right :: [(level, move)]
+    """
+    cMatches = 0
+    smLeft = set(m[1] for am in left for m in am if m)
+    smRight = set(name for _, name in right)
+    cMatches = len(smLeft & smRight)
+
+    if cMatches < (len(left) + len(right)) / 4:
+        alignment = align_simple(left, right)
+    else:
+        alignment = align_full(left, right)
+
+
+    return apply_alignment(alignment, left, right)
+
+def align_simple(left, right):
+    """
+    only matches on levels
     """
     alignment = [] # :: [(Maybe i, j)]
 
@@ -146,18 +164,40 @@ def align(left, right):
     for iRight in range(iRight + 1, len(right)):
         alignment.append((None, iRight))
 
-    key_levels = lambda x: x[0]
-    key_moves = lambda x: x[1]
+    lock(alignment, left, right, key_levels)
 
-    iLeft = iRight = 0
-    while any(key_levels(x) == 1 for x in left[iLeft] if x is not None):
-        iLeft += 1
-    while key_levels(right[iRight]) == 1:
-        iRight += 1
+    return alignment
+
+def align_full(left, right):
+    """
+    the full algorithm
+    """
+
+    alignment = [] # :: [(Maybe i, j)]
+
+    # lock when moves match
+    liLeft = 0
+    for iRight in range(len(right)):
+        for iLeft in range(liLeft, len(left)):
+            if search(right[iRight], reversed(left[iLeft]), key=lambda x: x):
+                alignment.append((iLeft, iRight))
+                liLeft = iLeft + 1
+                break
+        else:
+            alignment.append((None, iRight))
+    # add extras
+    for iRight in range(iRight + 1, len(right)):
+        alignment.append((None, iRight))
+
+    #iLeft = iRight = 0
+    #while any(key_levels(x) == 1 for x in left[iLeft] if x is not None):
+    #    iLeft += 1
+    #while key_levels(right[iRight]) == 1:
+    #    iRight += 1
     #print(iLeft, iRight)
 
     #movesfirst = alignment
-    lock_while(alignment, left, right, iLeft, iRight, key_levels)
+    #lock_while(alignment, left, right, iLeft, iRight, key_levels)
     lock(alignment, left, right, key_moves)
     lock(alignment, left, right, key_levels)
 
@@ -170,8 +210,13 @@ def align(left, right):
 
     #print(alignment)
 
+    return alignment
+
+def apply_alignment(alignment, left, right):
     final = []
+
     cms = len(left[0])
+    liLeft = 0
     for iLeft, iRight in alignment:
         if iLeft is None:
             final.append([None] * cms + [right[iRight]])
