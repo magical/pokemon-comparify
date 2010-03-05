@@ -53,6 +53,9 @@ def extract_moves(conn, pokemon_id):
 
     return movesets
 
+def connect():
+    return sqlite3.connect(DATABASE)
+    
 
 if __name__ == '__main__':
     import sys
@@ -61,7 +64,7 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     from pprint import pprint
-    conn = sqlite3.connect(DATABASE)
+    conn = connect(DATABASE)
     pprint(extract_moves(conn, sys.argv[1]))
 
 
