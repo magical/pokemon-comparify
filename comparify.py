@@ -60,7 +60,16 @@ def upper_bounds(alignment, max):
 def calc_bounds(a, alignment):
     return zip(lower_bounds(alignment), upper_bounds(alignment, len(a)))
 
-def lock(left, right, alignment, cmp):
+def search(target, a, key):
+    target = key(target)
+    for x in a:
+        if x is None:
+            continue
+        if target == key(x):
+            return True
+    return False
+
+def lock(left, right, alignment, key):
     bounds = calc_bounds(left, alignment)
     #k, i, j, min_i, max_i
     for iAlignment, ((iLeft, iRight), (liLeft, uiLeft)) \
@@ -69,15 +78,9 @@ def lock(left, right, alignment, cmp):
             continue
 
         for iLeft in range(liLeft,  uiLeft):
-            for ms in reversed(left[iLeft]):
-                if ms is None:
-                    continue
-                if cmp(right[iRight], ms):
-                    alignment[iAlignment] = (iLeft, iRight)
-                    break
-            else:
-                continue
-            break
+            if search(right[iRight], reversed(left[iLeft]), key):
+                alignment[iAlignment] = (iLeft, iRight)
+                break
 
     return
 
@@ -92,32 +95,26 @@ def align(left, right):
     liLeft = 0
     for iRight in range(len(right)):
         for iLeft in range(liLeft, len(left)):
-            for ms in reversed(left[iLeft]):
-                if ms is None:
-                    continue
-                if ms == right[iRight]:
-                    alignment.append((iLeft, iRight))
-                    liLeft = iLeft + 1
-                    break
-            else:
-                continue
-            break
+            if search(right[iRight], reversed(left[iLeft]), key=lambda x: x):
+                alignment.append((iLeft, iRight))
+                liLeft = iLeft + 1
+                break
         else:
             alignment.append((None, iRight))
     # add extras
     for iRight in range(iRight + 1, len(right)):
         alignment.append((None, iRight))
 
-    cmp_levels = lambda a, b: a[0] == b[0]
-    cmp_moves = lambda a, b: a[1] == b[1]
+    key_levels = lambda x: x[0]
+    key_moves = lambda x: x[1]
 
     movesfirst = alignment
-    lock(left, right, movesfirst, cmp_moves)
-    lock(left, right, movesfirst, cmp_levels)
+    lock(left, right, movesfirst, key_moves)
+    lock(left, right, movesfirst, key_levels)
 
     #levelsfirst = alignment
-    #lock(left, right, levelsfirst, cmp_levels)
-    #lock(left, right, levelsfirst, cmp_moves)
+    #lock(left, right, levelsfirst, key_levels)
+    #lock(left, right, levelsfirst, key_moves)
 
     alignment = movesfirst
     #alignment = levelsfirst
@@ -138,6 +135,13 @@ def align(left, right):
 
     return final
 
+def alignn(movesets):
+    combined = [[x] for x in movesets[0]]
+    for moveset in movesets[1:]:
+        combined = align(combined, moveset)
+    return combined
+        
+
 
 from time import time
 def time_align(movesets, ia, ib):
@@ -151,10 +155,23 @@ def time_align(movesets, ia, ib):
     time_b = time()
     return (time_b - time_a), combined
 
+def time_alignn(movesets):
+    movesets = [x[1] for x in movesets]
+
+    time_a = time()
+    combined = alignn(movesets)
+    time_b = time()
+    return (time_b - time_a), combined
+
+
 if __name__ == '__main__':
     from pprint import pprint
     def do_time(*args):
         time, combined = time_align(*args)
+        pprint(combined)
+        print ("%f seconds\n" % time)
+    def do_time_n(*args):
+        time, combined = time_alignn(*args)
         pprint(combined)
         print ("%f seconds\n" % time)
 
@@ -250,11 +267,7 @@ if __name__ == '__main__':
 
     do_time(poochyena, 0, 1)
     do_time(nincada, 0, 1)
-    time_a = time()
-    combined = align([[x] for x in nincada[0][1]], nincada[1][1])
-    combined = align(combined, nincada[2][1])
-    time_b = time()
-    pprint(combined)
-    print ("%f seconds" % (time_b - time_a))
+    do_time_n(nincada)
+
 
 
