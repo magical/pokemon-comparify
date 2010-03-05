@@ -64,7 +64,7 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     from pprint import pprint
-    conn = connect(DATABASE)
+    conn = connect()
     pprint(extract_moves(conn, sys.argv[1]))
 
 
