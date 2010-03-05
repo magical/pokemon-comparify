@@ -142,7 +142,7 @@ def align(left, right):
         alignment = align_full(left, right)
 
     alignment = fill_alignment(alignment, left, right)
-    #tweak_levels(alignment, left, right)
+    sink(alignment, left, right)
 
     return apply_alignment(alignment, left, right)
 
@@ -214,19 +214,20 @@ def align_full(left, right):
 
     return alignment
 
-def tweak_levels(alignment, left, right):
+def sink(alignment, left, right):
     i = 0
+    j = 0
     while i + 1 < len(alignment):
-        if alignment[i][0] is None and alignment[i][1] is not None \
-            and i < len(alignment) and alignment[i + 1][1] is None:
-            # if the level on the left of the next entry 
-            #    <= the level on the right of this entry
-            mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
-            if mLeft[0] <= right[alignment[i][1]][0]:
-                alignment[i], alignment[i+1] = alignment[i+1], alignment[i]
-                i += 1
+        if alignment[i][0] is not None:
+            j = i
+        elif alignment[i][1] is not None \
+            and alignment[i + 1][1] is None:
+            #mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
+            #if mLeft[0] <= right[alignment[i][1]][0]:
+                m = alignment.pop(i + 1)
+                alignment.insert(j + 1, m)
+                j += 1
         i += 1
-    return
 
 def fill_gaps(alignment, left, right):
     pass
