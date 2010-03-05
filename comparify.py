@@ -24,9 +24,43 @@ Metamorphosis
     Examples: Gyarados, Butterfree, Clamperl, Combee
 
 Added attack at level of evolution
+    Example: Ninjask
     
     
 """
+
+def lower_bounds(alignment):
+    prev_is = []
+    prev_i = -1
+    for i, _ in alignment:
+        prev_is.append(prev_i)
+        if i is not None and i > prev_i:
+            prev_i = i
+    return prev_is
+
+def upper_bounds(alignment, max):
+    next_is = []
+    next_i = max
+    for i, _ in reversed(alignment):
+        if i is not None and i < next_i:
+            next_i = i
+        next_is.append(next_i)
+    next_is.reverse()
+    return next_is
+
+def calc_bounds(a, alignment):
+    return zip(lower_bounds(alignment), upper_bounds(alignment, len(a)))
+
+def lock(a, b, alignment, cmp):
+    bounds = calc_bounds(a, alignment)
+    for k, ((i, j), (min_i, max_i)) in enumerate(zip(alignment, bounds)):
+        if i is not None:
+            continue
+
+        for i in range(min_i + 1, max_i):
+            if cmp(a[i], b[j]):
+                alignment[k] = (i, j)
+                break
 
 def align(a, b):
     """
@@ -48,32 +82,19 @@ def align(a, b):
     for j in range(j + 1, len(b)):
         alignment.append((None, b))
 
-    # calculate bounds
-    prev_is = []
-    prev_i = -1
-    for i, _ in alignment:
-        prev_is.append(prev_i)
-        if i is not None and i > prev_i:
-            prev_i = i
+    cmp_levels = lambda a, b: a[0] == b[0]
+    cmp_moves = lambda a, b: a[1] == b[1]
 
-    next_is = []
-    next_i = len(a)
-    for i, _ in reversed(alignment):
-        if i is not None and i < next_i:
-            next_i = i
-        next_is.append(next_i)
-    next_is.reverse()
+    #movesfirst = list(alignment)
+    levelsfirst = alignment
 
-    bounds = zip(prev_is, next_is)
-    # lock remaining when levels match
-    for k, ((i, j), (min_i, max_i)) in enumerate(zip(alignment, bounds)):
-        if i is not None:
-            continue
+    #lock(movesfirst, cmp_moves)
+    #lock(movesfirst, cmp_levels)
 
-        for i in range(min_i + 1, max_i):
-            if a[i][0] == b[j][0] or a[i][1] == b[j][1]:
-                alignment[k] = (i, j)
-                break
+    lock(a, b, levelsfirst, cmp_levels)
+    lock(a, b, levelsfirst, cmp_moves)
+
+    alignment = levelsfirst
 
     final = []
     prev_i = 0
