@@ -29,86 +29,112 @@ Added attack at level of evolution
     
 """
 
+#Hungarian Notation:
+# i - an index
+# a - an array
+# ai - an array of indicies
+# l - a lower bound
+# u - an upper bound
+
+
+
 def lower_bounds(alignment):
-    prev_is = []
-    prev_i = -1
+    ali = []
+    li = -1
     for i, _ in alignment:
-        prev_is.append(prev_i)
-        if i is not None and i > prev_i:
-            prev_i = i
-    return prev_is
+        ali.append(li)
+        if i is not None:
+            li = i+1
+    return ali
 
 def upper_bounds(alignment, max):
-    next_is = []
-    next_i = max
+    aui = []
+    ui = max
     for i, _ in reversed(alignment):
-        if i is not None and i < next_i:
-            next_i = i
-        next_is.append(next_i)
-    next_is.reverse()
-    return next_is
+        aui.append(ui)
+        if i is not None:
+            ui = i
+    aui.reverse()
+    return aui
 
 def calc_bounds(a, alignment):
     return zip(lower_bounds(alignment), upper_bounds(alignment, len(a)))
 
-def lock(a, b, alignment, cmp):
-    bounds = calc_bounds(a, alignment)
-    for k, ((i, j), (min_i, max_i)) in enumerate(zip(alignment, bounds)):
-        if i is not None:
+def lock(left, right, alignment, cmp):
+    bounds = calc_bounds(left, alignment)
+    #k, i, j, min_i, max_i
+    for iAlignment, ((iLeft, iRight), (liLeft, uiLeft)) \
+        in enumerate(zip(alignment, bounds)):
+        if iLeft is not None:
             continue
 
-        for i in range(min_i + 1, max_i):
-            if cmp(a[i], b[j]):
-                alignment[k] = (i, j)
-                break
+        for iLeft in range(liLeft,  uiLeft):
+            for ms in reversed(left[iLeft]):
+                if ms is None:
+                    continue
+                if cmp(right[iRight], ms):
+                    alignment[iAlignment] = (iLeft, iRight)
+                    break
+            else:
+                continue
+            break
 
-def align(a, b):
+    return
+
+def align(left, right):
     """
-    moveset = [(level, move),]
+    left :: [[(level, move)]]
+    right :: [(level, move)]
     """
-    alignment = [] # ::[(Maybe i, j)]
+    alignment = [] # :: [(Maybe i, j)]
 
     # lock when moves match
-    prev_i = 0
-    for j in range(len(b)):
-        for i in range(prev_i, len(a)):
-            if a[i] == b[j]:
-                alignment.append((i, j))
-                prev_i = i + 1
-                break
+    liLeft = 0
+    for iRight in range(len(right)):
+        for iLeft in range(liLeft, len(left)):
+            for ms in reversed(left[iLeft]):
+                if ms is None:
+                    continue
+                if ms == right[iRight]:
+                    alignment.append((iLeft, iRight))
+                    liLeft = iLeft + 1
+                    break
+            else:
+                continue
+            break
         else:
-            alignment.append((None, j))
+            alignment.append((None, iRight))
     # add extras
-    for j in range(j + 1, len(b)):
-        alignment.append((None, b))
+    for iRight in range(iRight + 1, len(right)):
+        alignment.append((None, iRight))
 
     cmp_levels = lambda a, b: a[0] == b[0]
     cmp_moves = lambda a, b: a[1] == b[1]
 
-    #movesfirst = list(alignment)
-    levelsfirst = alignment
+    movesfirst = alignment
+    lock(left, right, movesfirst, cmp_moves)
+    lock(left, right, movesfirst, cmp_levels)
 
-    #lock(movesfirst, cmp_moves)
-    #lock(movesfirst, cmp_levels)
+    #levelsfirst = alignment
+    #lock(left, right, levelsfirst, cmp_levels)
+    #lock(left, right, levelsfirst, cmp_moves)
 
-    lock(a, b, levelsfirst, cmp_levels)
-    lock(a, b, levelsfirst, cmp_moves)
-
-    alignment = levelsfirst
+    alignment = movesfirst
+    #alignment = levelsfirst
 
     final = []
-    prev_i = 0
-    for i, j in alignment:
-        if i is None:
-            final.append((None, b[j]))
+    cms = len(left[0])
+    for iLeft, iRight in alignment:
+        if iLeft is None:
+            final.append([None] * cms + [right[iRight]])
         else:
-            while prev_i < i:
-                final.append((a[prev_i], None))
-                prev_i += 1
-            final.append((a[i], b[j]))
-            prev_i = i + 1
-    for i in range(prev_i, len(a)):
-        final.append((a[i], None))
+            while liLeft < iLeft:
+                final.append(left[liLeft] + [None])
+                liLeft += 1
+            final.append(left[iLeft] + [right[iRight]])
+            liLeft = iLeft + 1
+    for iLeft in range(liLeft, len(left)):
+        final.append(left[iLeft] + [None])
 
     return final
 
@@ -117,6 +143,9 @@ from time import time
 def time_align(movesets, ia, ib):
     a = movesets[ia][1]
     b = movesets[ib][1]
+
+    a = [[x] for x in a]
+
     time_a = time()
     combined = align(a, b)
     time_b = time()
@@ -209,16 +238,23 @@ if __name__ == '__main__':
        (59, 'Shadow Ball')])]
 
 
-    pprint(align([
-        (1, 'a'),
-        (2, 'b'),
-        (3, 'c'),
-        (4, 'd'),
-        (5, 'e'),
-    ], [
-        (3, 'c'),
-    ]))
+#    pprint(align([
+#        (1, 'a'),
+#        (2, 'b'),
+#        (3, 'c'),
+#        (4, 'd'),
+#        (5, 'e'),
+#    ], [
+#        (3, 'c'),
+#    ]))
 
     do_time(poochyena, 0, 1)
     do_time(nincada, 0, 1)
+    time_a = time()
+    combined = align([[x] for x in nincada[0][1]], nincada[1][1])
+    combined = align(combined, nincada[2][1])
+    time_b = time()
+    pprint(combined)
+    print ("%f seconds" % (time_b - time_a))
+
 
