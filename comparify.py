@@ -40,20 +40,24 @@ Added attack at level of evolution
 
 def lower_bounds(alignment):
     ali = []
-    li = -1
+    li = 0
     for i, _ in alignment:
-        ali.append(li)
-        if i is not None:
+        if i is None:
+            ali.append(li)
+        else:
             li = i+1
+            ali.append(None)
     return ali
 
 def upper_bounds(alignment, max):
     aui = []
     ui = max
     for i, _ in reversed(alignment):
-        aui.append(ui)
-        if i is not None:
+        if i is None:
+            aui.append(ui)
+        else:
             ui = i
+            aui.append(None)
     aui.reverse()
     return aui
 
