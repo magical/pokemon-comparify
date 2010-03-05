@@ -61,9 +61,6 @@ def upper_bounds(alignment, max):
     aui.reverse()
     return aui
 
-def calc_bounds(a, alignment):
-    return zip(lower_bounds(alignment), upper_bounds(alignment, len(a)))
-
 def search(target, a, key):
     target = key(target)
     for x in a:
@@ -74,16 +71,20 @@ def search(target, a, key):
     return False
 
 def lock(left, right, alignment, key):
-    bounds = calc_bounds(left, alignment)
-    #k, i, j, min_i, max_i
-    for iAlignment, ((iLeft, iRight), (liLeft, uiLeft)) \
+    bounds = upper_bounds(alignment, len(left))
+    #bounds = list(bounds); print(bounds)
+
+    liLeft = 0
+    for iAlignment, ((iLeft, iRight), uiLeft) \
         in enumerate(zip(alignment, bounds)):
         if iLeft is not None:
+            liLeft = iLeft + 1
             continue
 
         for iLeft in range(liLeft,  uiLeft):
             if search(right[iRight], reversed(left[iLeft]), key):
                 alignment[iAlignment] = (iLeft, iRight)
+                liLeft = iLeft + 1
                 break
 
     return
@@ -122,6 +123,8 @@ def align(left, right):
 
     alignment = movesfirst
     #alignment = levelsfirst
+
+    #print(alignment)
 
     final = []
     cms = len(left[0])
