@@ -37,8 +37,10 @@ It makes 4 passes through the move list, with decreasing standards for what
 is a match.
 
 Pass 1 locks when both the level and the move match.
-Pass 2 locks when the move matches.
-Pass 3 locks when the level matches.
+Pass 2 goes through the two lists in lock-step, locking when the levels match,
+       but aborting as soon as they do not.
+Pass 3 locks when the move matches.
+Pass 4 locks when the level matches.
 
 The final pass looks for "gaps" where some moves aren't locked. If the gap in
 one list is the same length as the gap in another list, it locks all those
@@ -87,7 +89,7 @@ def search(target, a, key):
             return True
     return False
 
-def lock(left, right, alignment, key):
+def lock(alignment, left, right, key):
     bounds = upper_bounds(alignment, len(left))
     #bounds = list(bounds); print(bounds)
 
@@ -103,6 +105,23 @@ def lock(left, right, alignment, key):
                 alignment[iAlignment] = (iLeft, iRight)
                 liLeft = iLeft + 1
                 break
+
+    return
+
+def lock_while(alignment, left, right, liLeft, liRight, key):
+    """locks while the left and right are equal or already locked"""
+
+    loop = zip(range(liRight, len(alignment)),
+               range(liLeft, len(left)),
+               range(liRight, len(right)))
+    for iAlignment, iLeft, iRight in loop:
+        if alignment[iAlignment][0] is not None:
+            continue
+
+        if search(right[iRight], reversed(left[iLeft]), key):
+            alignment[iAlignment] = (iLeft, iRight)
+        else:
+            break
 
     return
 
@@ -130,15 +149,23 @@ def align(left, right):
     key_levels = lambda x: x[0]
     key_moves = lambda x: x[1]
 
-    movesfirst = alignment
-    lock(left, right, movesfirst, key_moves)
-    lock(left, right, movesfirst, key_levels)
+    iLeft = iRight = 0
+    while any(key_levels(x) == 1 for x in left[iLeft] if x is not None):
+        iLeft += 1
+    while key_levels(right[iRight]) == 1:
+        iRight += 1
+    #print(iLeft, iRight)
+
+    #movesfirst = alignment
+    lock_while(alignment, left, right, iLeft, iRight, key_levels)
+    lock(alignment, left, right, key_moves)
+    lock(alignment, left, right, key_levels)
 
     #levelsfirst = alignment
     #lock(left, right, levelsfirst, key_levels)
     #lock(left, right, levelsfirst, key_moves)
 
-    alignment = movesfirst
+    #alignment = movesfirst
     #alignment = levelsfirst
 
     #print(alignment)
