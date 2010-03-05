@@ -42,7 +42,7 @@ Pass 3 locks when the level matches.
 
 The final pass looks for "gaps" where some moves aren't locked. If the gap in
 one list is the same length as the gap in another list, it locks all those
-moves. (Not yet implemented.)
+moves.
 
 """
 
@@ -142,6 +142,7 @@ def align(left, right):
         alignment = align_full(left, right)
 
     alignment = fill_alignment(alignment, left, right)
+    fill_gaps(alignment, left, right)
     sink(alignment, left, right)
 
     return apply_alignment(alignment, left, right)
@@ -229,8 +230,31 @@ def sink(alignment, left, right):
                 j += 1
         i += 1
 
+def merge_gap(alignment, iLeft, cGap):
+    for i in range(iLeft, iLeft + cGap):
+        alignment[i] = alignment[i+cGap][0], alignment[i][1]
+
+    del alignment[iLeft+cGap:iLeft+cGap+cGap]
+
 def fill_gaps(alignment, left, right):
-    pass
+    cGapLeft = 0
+    iAlignmentLeft = 0
+    while iAlignmentLeft < len(alignment):
+        if alignment[iAlignmentLeft][0] is None:
+            assert alignment[iAlignmentLeft][1] is not None
+            cGapLeft += 1
+        elif cGapLeft:
+            cGapRight = 0
+            for iAlignmentRight in range(iAlignmentLeft, len(alignment)):
+                if alignment[iAlignmentRight][1] is None:
+                    cGapRight += 1
+                else:
+                    break
+            if cGapLeft == cGapRight:
+                merge_gap(alignment, iAlignmentLeft - cGapLeft, cGapLeft)
+                iAlignmentLeft -= 1
+            cGapLeft = 0
+        iAlignmentLeft += 1
 
 def fill_alignment(alignment, left, right):
     liLeft = 0
