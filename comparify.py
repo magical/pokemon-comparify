@@ -54,254 +54,285 @@ Pass 5 does a sort so that levels are more or less in order.
 # u - an upper bound
 
 
+class MoveAligner:
+    __metaclass__ = type
 
-def lower_bounds(alignment):
-    ali = []
-    li = 0
-    for i, _ in alignment:
-        if i is None:
-            ali.append(li)
-        else:
-            li = i+1
-            ali.append(None)
-    return ali
-
-def upper_bounds(alignment, max):
-    aui = []
-    ui = max
-    for i, _ in reversed(alignment):
-        if i is None:
-            aui.append(ui)
-        else:
-            ui = i
-            aui.append(None)
-    aui.reverse()
-    return aui
-
-def search(target, a, key):
-    target = key(target)
-    for x in a:
-        if x is None:
-            continue
-        if target == key(x):
-            return True
-    return False
-
-def lock(alignment, left, right, key):
-    bounds = upper_bounds(alignment, len(left))
-    #bounds = list(bounds); print(bounds)
-
-    liLeft = 0
-    for iAlignment, ((iLeft, iRight), uiLeft) \
-        in enumerate(zip(alignment, bounds)):
-        if iLeft is not None:
-            liLeft = iLeft + 1
-            continue
-
-        for iLeft in range(liLeft,  uiLeft):
-            if search(right[iRight], reversed(left[iLeft]), key):
-                alignment[iAlignment] = (iLeft, iRight)
-                liLeft = iLeft + 1
-                break
-
-    return
-
-def lock_while(alignment, left, right, liLeft, liRight, key):
-    """locks while the left and right are equal or already locked"""
-
-    loop = zip(range(liRight, len(alignment)),
-               range(liLeft, len(left)),
-               range(liRight, len(right)))
-    for iAlignment, iLeft, iRight in loop:
-        if alignment[iAlignment][0] is not None:
-            continue
-
-        if search(right[iRight], reversed(left[iLeft]), key):
-            alignment[iAlignment] = (iLeft, iRight)
-        else:
-            break
-
-    return
+    def match(self, iLeft, iRight, key=lambda x: x, reverse=True):
+        needle = key(self.right[iRight])
+        haystack = self.left[iLeft]
+        if reverse:
+            haystack = reversed(haystack)
+        for x in haystack:
+            if x is None:
+                continue
+            if needle == key(x):
+                return True
+        return False
 
 key_levels = lambda x: x[0]
 key_moves = lambda x: x[1]
 
-def align(left, right):
-    """
-    left :: [[(level, move)]]
-    right :: [(level, move)]
-    """
-    cMatches = 0
-    smLeft = set(m[1] for am in left for m in am if m)
-    smRight = set(name for _, name in right)
-    cMatches = len(smLeft & smRight)
+class HeuristicMoveAligner(MoveAligner):
+    def __init__(self, left, right):
+        self.alignment = [] # :: [(Maybe i, j)]
+        self.left = left
+        self.right = right
 
-    if cMatches < (len(left) + len(right)) / 4:
-        alignment = align_simple(left, right)
-    else:
-        alignment = align_full(left, right)
+    def lower_bounds(self):
+        ali = []
+        li = 0
+        for i, _ in self.alignment:
+            if i is None:
+                ali.append(li)
+            else:
+                li = i+1
+                ali.append(None)
+        return ali
 
-    alignment = fill_alignment(alignment, left, right)
-    fill_gaps(alignment, left, right)
-    sort_levels(alignment, left, right)
+    def upper_bounds(self, max):
+        aui = []
+        ui = max
+        for i, _ in reversed(self.alignment):
+            if i is None:
+                aui.append(ui)
+            else:
+                ui = i
+                aui.append(None)
+        aui.reverse()
+        return aui
 
-    return apply_alignment(alignment, left, right)
+    def lock(self, key):
+        alignment = self.alignment
+        left = self.left
+        right = self.right
+        bounds = self.upper_bounds(len(left))
+        #bounds = list(bounds); print(bounds)
 
-def align_simple(left, right):
-    """
-    only matches on levels
-    """
-    alignment = [] # :: [(Maybe i, j)]
-
-    # lock when moves match
-    liLeft = 0
-    for iRight in range(len(right)):
-        for iLeft in range(liLeft, len(left)):
-            if search(right[iRight], reversed(left[iLeft]), key=lambda x: x):
-                alignment.append((iLeft, iRight))
+        liLeft = 0
+        for iAlignment, ((iLeft, iRight), uiLeft) \
+            in enumerate(zip(alignment, bounds)):
+            if iLeft is not None:
                 liLeft = iLeft + 1
-                break
-        else:
-            alignment.append((None, iRight))
-    # add extras
-    for iRight in range(iRight + 1, len(right)):
-        alignment.append((None, iRight))
+                continue
 
-    lock(alignment, left, right, key_levels)
-
-    return alignment
-
-def align_full(left, right):
-    """
-    the full algorithm
-    """
-
-    alignment = [] # :: [(Maybe i, j)]
-
-    # lock when moves match
-    liLeft = 0
-    for iRight in range(len(right)):
-        for iLeft in range(liLeft, len(left)):
-            if search(right[iRight], reversed(left[iLeft]), key=lambda x: x):
-                alignment.append((iLeft, iRight))
-                liLeft = iLeft + 1
-                break
-        else:
-            alignment.append((None, iRight))
-    # add extras
-    for iRight in range(iRight + 1, len(right)):
-        alignment.append((None, iRight))
-
-    #iLeft = iRight = 0
-    #while any(key_levels(x) == 1 for x in left[iLeft] if x is not None):
-    #    iLeft += 1
-    #while key_levels(right[iRight]) == 1:
-    #    iRight += 1
-    #print(iLeft, iRight)
-
-    #movesfirst = alignment
-    #lock_while(alignment, left, right, iLeft, iRight, key_levels)
-    lock(alignment, left, right, key_moves)
-    lock(alignment, left, right, key_levels)
-
-    #levelsfirst = alignment
-    #lock(left, right, levelsfirst, key_levels)
-    #lock(left, right, levelsfirst, key_moves)
-
-    #alignment = movesfirst
-    #alignment = levelsfirst
-
-    #print(alignment)
-
-    return alignment
-
-def sort_levels(alignment, left, right):
-    """basically a bounded insertion sort
-
-    alignment must have been previously passed to fill_alignment
-    """
-    i = 0
-    li = 0
-    while i + 1 < len(alignment):
-        if alignment[i][0] is not None:
-            li = i
-        elif alignment[i][1] is not None \
-            and alignment[i + 1][1] is None:
-            mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
-            if mLeft[0] <= right[alignment[i][1]][0]:
-                r = i
-                while li < r and mLeft[0] <= right[alignment[r][1]][0]:
-                    r -= 1
-                if r != i:
-                    m = alignment.pop(i + 1)
-                    alignment.insert(r + 1, m)
-                    li = r + 1
-                    i -= 1
-        i += 1
-
-def merge_gap(alignment, iLeft, cGap):
-    for i in range(iLeft, iLeft + cGap):
-        alignment[i] = alignment[i+cGap][0], alignment[i][1]
-
-    del alignment[iLeft+cGap:iLeft+cGap+cGap]
-
-def fill_gaps(alignment, left, right):
-    cGapLeft = 0
-    iAlignmentLeft = 0
-    while iAlignmentLeft < len(alignment):
-        if alignment[iAlignmentLeft][0] is None:
-            assert alignment[iAlignmentLeft][1] is not None
-            cGapLeft += 1
-        elif cGapLeft:
-            cGapRight = 0
-            for iAlignmentRight in range(iAlignmentLeft, len(alignment)):
-                if alignment[iAlignmentRight][1] is None:
-                    cGapRight += 1
-                else:
+            for iLeft in range(liLeft,  uiLeft):
+                if self.match(iLeft, iRight, key=key):
+                    alignment[iAlignment] = (iLeft, iRight)
+                    liLeft = iLeft + 1
                     break
-            if cGapLeft == cGapRight:
-                merge_gap(alignment, iAlignmentLeft - cGapLeft, cGapLeft)
-                iAlignmentLeft -= 1
-            cGapLeft = 0
-        iAlignmentLeft += 1
 
-def fill_alignment(alignment, left, right):
-    liLeft = 0
-    newalignment = []
-    for iLeft, iRight in alignment:
-        if iLeft is None:
-            newalignment.append((None, iRight))
+        return
+
+    def lock_while(self, left, right, liLeft, liRight, key):
+        """locks while the left and right are equal or already locked"""
+        alignment = self.alignment
+
+        loop = zip(range(liRight, len(alignment)),
+                   range(liLeft, len(left)),
+                   range(liRight, len(right)))
+        for iAlignment, iLeft, iRight in loop:
+            if alignment[iAlignment][0] is not None:
+                continue
+
+            if self.match(iLeft, iRight, key=key):
+                alignment[iAlignment] = (iLeft, iRight)
+            else:
+                break
+
+        return
+
+    def align(self):
+        """
+        left :: [[(level, move)]]
+        right :: [(level, move)]
+        """
+        left = self.left
+        right = self.right
+
+        cMatches = 0
+        smLeft = set(m[1] for am in left for m in am if m)
+        smRight = set(name for _, name in right)
+        cMatches = len(smLeft & smRight)
+
+        if cMatches < (len(left) + len(right)) / 4:
+            self.align_simple()
         else:
-            while liLeft < iLeft:
-                newalignment.append((liLeft, None))
-                liLeft += 1
-            newalignment.append((iLeft, iRight))
-            liLeft = iLeft + 1
-    for iLeft in range(liLeft, len(left)):
-        newalignment.append((iLeft, None))
-    return newalignment
+            self.align_full()
 
+        self.fill_alignment()
+        self.fill_gaps()
+        self.sort_levels()
 
-def apply_alignment(alignment, left, right):
-    final = []
+        return self.apply_alignment()
 
-    cms = len(left[0])
-    for iLeft, iRight in alignment:
-        if iLeft is None:
-            final.append([None] * cms + [right[iRight]])
-        elif iRight is None:
-            final.append(left[iLeft] + [None])
-        else:
-            final.append(left[iLeft] + [right[iRight]])
+    def align_simple(self):
+        """
+        only matches on levels
+        """
+        alignment = self.alignment
+        left = self.left
+        right = self.right
 
-    return final
+        # lock when moves match
+        liLeft = 0
+        for iRight in range(len(right)):
+            for iLeft in range(liLeft, len(left)):
+                if self.match(iLeft, iRight):
+                    alignment.append((iLeft, iRight))
+                    liLeft = iLeft + 1
+                    break
+            else:
+                alignment.append((None, iRight))
+        # add extras
+        for iRight in range(iRight + 1, len(right)):
+            alignment.append((None, iRight))
+
+        self.lock(key_levels)
+
+    def align_full(self):
+        """
+        the full algorithm
+        """
+        alignment = self.alignment
+        left = self.left
+        right = self.right
+
+        # lock when moves match
+        liLeft = 0
+        for iRight in range(len(right)):
+            for iLeft in range(liLeft, len(left)):
+                if self.match(iLeft, iRight):
+                    alignment.append((iLeft, iRight))
+                    liLeft = iLeft + 1
+                    break
+            else:
+                alignment.append((None, iRight))
+        # add extras
+        for iRight in range(iRight + 1, len(right)):
+            alignment.append((None, iRight))
+
+        #iLeft = iRight = 0
+        #while any(key_levels(x) == 1 for x in left[iLeft] if x is not None):
+        #    iLeft += 1
+        #while key_levels(right[iRight]) == 1:
+        #    iRight += 1
+        #print(iLeft, iRight)
+
+        #movesfirst = alignment
+        #lock_while(alignment, left, right, iLeft, iRight, key_levels)
+        self.lock(key_moves)
+        self.lock(key_levels)
+
+        #levelsfirst = alignment
+        #lock(left, right, levelsfirst, key_levels)
+        #lock(left, right, levelsfirst, key_moves)
+
+        #alignment = movesfirst
+        #alignment = levelsfirst
+
+        #print(alignment)
+
+    def sort_levels(self):
+        """basically a bounded insertion sort
+
+        alignment must have been previously passed to fill_alignment
+        """
+        alignment = self.alignment
+        left = self.left
+        right = self.right
+
+        i = 0
+        li = 0
+        while i + 1 < len(alignment):
+            if alignment[i][0] is not None:
+                li = i
+            elif alignment[i][1] is not None \
+                and alignment[i + 1][1] is None:
+                mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
+                if mLeft[0] <= right[alignment[i][1]][0]:
+                    r = i
+                    while li < r and mLeft[0] <= right[alignment[r][1]][0]:
+                        r -= 1
+                    if r != i:
+                        m = alignment.pop(i + 1)
+                        alignment.insert(r + 1, m)
+                        li = r + 1
+                        i -= 1
+            i += 1
+
+    def merge_gap(self, iLeft, cGap):
+        alignment = self.alignment
+        for i in range(iLeft, iLeft + cGap):
+            alignment[i] = alignment[i+cGap][0], alignment[i][1]
+
+        del alignment[iLeft+cGap:iLeft+cGap+cGap]
+
+    def fill_gaps(self):
+        alignment = self.alignment
+        left = self.left
+        right = self.right
+
+        cGapLeft = 0
+        iAlignmentLeft = 0
+        while iAlignmentLeft < len(alignment):
+            if alignment[iAlignmentLeft][0] is None:
+                assert alignment[iAlignmentLeft][1] is not None
+                cGapLeft += 1
+            elif cGapLeft:
+                cGapRight = 0
+                for iAlignmentRight in range(iAlignmentLeft, len(alignment)):
+                    if alignment[iAlignmentRight][1] is None:
+                        cGapRight += 1
+                    else:
+                        break
+                if cGapLeft == cGapRight:
+                    self.merge_gap(iAlignmentLeft - cGapLeft, cGapLeft)
+                    iAlignmentLeft -= 1
+                cGapLeft = 0
+            iAlignmentLeft += 1
+
+    def fill_alignment(self):
+        left = self.left
+        right = self.right
+
+        liLeft = 0
+        newalignment = []
+        for iLeft, iRight in self.alignment:
+            if iLeft is None:
+                newalignment.append((None, iRight))
+            else:
+                while liLeft < iLeft:
+                    newalignment.append((liLeft, None))
+                    liLeft += 1
+                newalignment.append((iLeft, iRight))
+                liLeft = iLeft + 1
+        for iLeft in range(liLeft, len(left)):
+            newalignment.append((iLeft, None))
+
+        self.alignment[:] = newalignment
+
+    def apply_alignment(self):
+        left = self.left
+        right = self.right
+        final = []
+
+        cms = len(left[0])
+        for iLeft, iRight in self.alignment:
+            if iLeft is None:
+                final.append([None] * cms + [right[iRight]])
+            elif iRight is None:
+                final.append(left[iLeft] + [None])
+            else:
+                final.append(left[iLeft] + [right[iRight]])
+
+        return final
 
 def alignn(movesets):
     combined = [[x] for x in movesets[0]]
     for moveset in movesets[1:]:
-        combined = align(combined, moveset)
+        aligner = HeuristicMoveAligner(combined, moveset)
+        combined = aligner.align()
     return combined
-        
 
 
 from time import time
@@ -311,8 +342,9 @@ def time_align(movesets, ia, ib):
 
     a = [[x] for x in a]
 
+    aligner = HeuristicMoveAligner(a, b)
     time_a = time()
-    combined = align(a, b)
+    combined = aligner.align()
     time_b = time()
     return (time_b - time_a), combined
 
