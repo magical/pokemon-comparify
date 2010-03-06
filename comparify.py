@@ -333,8 +333,8 @@ class HeuristicMoveAligner(MoveAligner):
 
 
 class NeedlemanWunschMoveAligner(MoveAligner):
-    zero = (0, 0, 0, 0)
-    gap_penalty = (0, 0, 0, 1)
+    zero = (0, 0, 0)
+    gap_penalty = (0, 0, 1)
 
     def __init__(self, left, right):
         self.left = left
@@ -345,13 +345,17 @@ class NeedlemanWunschMoveAligner(MoveAligner):
     def align(self):
         self.compute_matrix()
         self.compute_alignment()
+
+        self.fill_gaps()
+        #self.sort_levels()
+
         return self.apply_alignment()
 
     def similarity(self, iLeft, iRight):
         return (
             int(self.match(iLeft, iRight)),
-            int(self.match(iLeft, iRight, key=key_moves)),
-            int(self.match(iLeft, iRight, key=key_levels)),
+            2 * int(self.match(iLeft, iRight, key=key_moves))
+              + int(self.match(iLeft, iRight, key=key_levels)),
             0
         )
 
