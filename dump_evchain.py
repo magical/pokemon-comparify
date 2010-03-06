@@ -53,6 +53,12 @@ def extract_moves(conn, pokemon_id):
 
     return movesets
 
+def all_pokemon(conn):
+    query = """\
+    SELECT id, name FROM pokemon ORDER BY name;
+    """
+    return conn.execute(query)
+
 def connect():
     return sqlite3.connect(DATABASE)
     
