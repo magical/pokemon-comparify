@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-
-
 """
 types of level-up move changes in evolution groups
 ==================================================
@@ -234,9 +232,11 @@ def sort_levels(alignment, left, right):
                 r = i
                 while li < r and mLeft[0] <= right[alignment[r][1]][0]:
                     r -= 1
-                m = alignment.pop(i + 1)
-                alignment.insert(r + 1, m)
-                li += 1
+                if r != i:
+                    m = alignment.pop(i + 1)
+                    alignment.insert(r + 1, m)
+                    li = r + 1
+                    i -= 1
         i += 1
 
 def merge_gap(alignment, iLeft, cGap):
