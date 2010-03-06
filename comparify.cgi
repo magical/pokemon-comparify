@@ -80,6 +80,7 @@ def fmt_plaintext(moves):
 def fmt_html(moves):
     pokemon, movesets = zip(*moves)
     time, combined = comparify.time_alignn(moves)
+    time *= 1000
     title = "%s Comparify" % "|".join(name for _, name in pokemon)
     colgroups = "<colgroup span=2>" * len(pokemon)
     thead = "".join("<th colspan=2>"+name for _, name in pokemon)
@@ -98,7 +99,7 @@ def fmt_html(moves):
     <tbody>
     {rows}
     </table>
-    <p>{time:f} seconds</p>
+    <p>{time:f} milliseconds</p>
     """.format(**locals())
 
 
