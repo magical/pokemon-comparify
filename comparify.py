@@ -33,16 +33,18 @@ HOW THE ALGORITHM WORKS
 Generally, it works by going through the list of moves and "locking" them
 when it feels it has a good match.
 
-It makes 3 passes through the move list, with decreasing standards for what
-is a match.
+It makes 5 passes through the move list, with decreasing standards for what
+is a match. If the 2 lists share less than half of their moves, pass 2 is
+skipped.
 
 Pass 1 locks when both the level and the move match.
-Pass 2 locks when the move matches. (If the 2 lists share > half of their moves)
+Pass 2 locks when the move matches.
 Pass 3 locks when the level matches.
-
-The final pass looks for "gaps" where some moves aren't locked. If the gap in
+Pass 4 looks for "gaps" where some moves aren't locked. If the gap in
 one list is the same length as the gap in another list, it locks all those
 moves.
+
+Pass 5 does a sort so that levels are more or less in order.
 
 """
 
@@ -143,7 +145,7 @@ def align(left, right):
 
     alignment = fill_alignment(alignment, left, right)
     fill_gaps(alignment, left, right)
-    sink(alignment, left, right)
+    sort_levels(alignment, left, right)
 
     return apply_alignment(alignment, left, right)
 
@@ -215,19 +217,26 @@ def align_full(left, right):
 
     return alignment
 
-def sink(alignment, left, right):
+def sort_levels(alignment, left, right):
+    """basically a bounded insertion sort
+
+    alignment must have been previously passed to fill_alignment
+    """
     i = 0
-    j = 0
+    li = 0
     while i + 1 < len(alignment):
         if alignment[i][0] is not None:
-            j = i
+            li = i
         elif alignment[i][1] is not None \
             and alignment[i + 1][1] is None:
-            #mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
-            #if mLeft[0] <= right[alignment[i][1]][0]:
+            mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
+            if mLeft[0] <= right[alignment[i][1]][0]:
+                r = i
+                while li < r and mLeft[0] <= right[alignment[r][1]][0]:
+                    r -= 1
                 m = alignment.pop(i + 1)
-                alignment.insert(j + 1, m)
-                j += 1
+                alignment.insert(r + 1, m)
+                li += 1
         i += 1
 
 def merge_gap(alignment, iLeft, cGap):
