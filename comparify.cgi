@@ -1,20 +1,22 @@
 #!/usr/bin/env python3.1
 
-import cgitb; cgitb.enable()
-
-import os
-import comparify
-import dump_evchain
-import cgi
-from pprint import pprint, pformat
-from textwrap import dedent
-
-# UTF-8
 import sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
 
+import cgitb; cgitb.enable()
+
+import os
+import cgi
+
+from pprint import pprint, pformat
+from textwrap import dedent
+
+import comparify
+import dump_evchain
+
+
 def cgi_main():
-    if os.environ.get('REQUEST_METHOD', "GET") != 'GET':
+    if os.environ.get('REQUEST_METHOD', "GET") != "GET":
         print("Status: 400")
         end_headers()
         return
