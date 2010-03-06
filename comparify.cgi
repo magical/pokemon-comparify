@@ -91,7 +91,7 @@ def fmt_html(moves):
             if move is not None else
             "<td><td>")
     rows = "\n".join("<tr>" + "".join(map(fmt_move, row)) for row in combined)
-    return """
+    return dedent("""\
     <!doctype html>
     <title>{title}</title>
     <table>
@@ -102,7 +102,7 @@ def fmt_html(moves):
     {rows}
     </table>
     <p>{time:f} milliseconds</p>
-    """.format(**locals())
+    """).format(**locals())
 
 
 if __name__ == '__main__':
