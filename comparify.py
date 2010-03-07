@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-types of level-up move changes in evolution groups
+Types of level-up move changes in evolution groups
 ==================================================
 
 No Change
@@ -32,8 +32,8 @@ Generally, it works by going through the list of moves and "locking" them
 when it feels it has a good match.
 
 It makes 5 passes through the move list, with decreasing standards for what
-is a match. If the 2 lists share less than half of their moves, pass 2 is
-skipped.
+is a match. Passes 2 and 3 are swapped if the movesets have move levels in
+common than moves in common.
 
 Pass 1 locks when both the level and the move match.
 Pass 2 locks when the move matches.
@@ -46,12 +46,16 @@ Pass 5 does a sort so that levels are more or less in order.
 
 """
 
-#Hungarian Notation:
+# Pardon my Hungarian. Here is a cheat sheet:
+#
 # i - an index
-# a - an array
+# c - a count, size, length
+# a - an array (list)
 # ai - an array of indicies
 # l - a lower bound
 # u - an upper bound
+# s - a set
+# m - move
 
 
 class MoveAligner:
@@ -100,7 +104,7 @@ class MoveAligner:
                         i -= 1
             i += 1
 
-    def merge_gap(self, iLeft, cGap):
+    def _merge_gap(self, iLeft, cGap):
         alignment = self.alignment
         for i in range(iLeft, iLeft + cGap):
             alignment[i] = alignment[i+cGap][0], alignment[i][1]
@@ -126,7 +130,7 @@ class MoveAligner:
                     else:
                         break
                 if cGapLeft == cGapRight:
-                    self.merge_gap(iAlignmentLeft - cGapLeft, cGapLeft)
+                    self._merge_gap(iAlignmentLeft - cGapLeft, cGapLeft)
                     iAlignmentLeft -= 1
                 cGapLeft = 0
             iAlignmentLeft += 1
@@ -152,9 +156,64 @@ key_moves = lambda x: x[1]
 
 class HeuristicMoveAligner(MoveAligner):
     def __init__(self, left, right):
-        self.alignment = [] # :: [(Maybe i, j)]
+        """
+        left :: [[(level, move)]]
+        right :: [(level, move)]
+        """
         self.left = left
         self.right = right
+
+    def clear(self):
+        self.alignment = [] # :: [(Maybe i, j)]
+
+    def align(self):
+        self.clear()
+
+        self.lock_both()
+
+        strategy = self.strategy = self.choose_strategy()
+
+        print(strategy)
+        if strategy == 'movesfirst':
+            self.lock(key_moves)
+            self.lock(key_levels)
+        elif strategy == 'levelsfirst':
+            self.lock(key_levels)
+            self.lock(key_moves)
+        else:
+            raise ValueError("Unknown strategy", strategy)
+
+        self.fill_alignment()
+        self.fill_gaps()
+        #self.sort_levels()
+
+        return self.apply_alignment()
+
+    def choose_strategy(self):
+        left = self.left
+        right = self.right
+
+        slLeft = set()
+        smLeft = set()
+        for am in left:
+            for m in am:
+                if m:
+                    level, move = m
+                    slLeft.add(level)
+                    smLeft.add(move)
+        slRight = set()
+        smRight = set()
+        for level, move in right:
+            slRight.add(level)
+            smRight.add(move)
+
+        cLevelMatches = len(slLeft & slRight)
+        cMoveMatches = len(smLeft & smRight)
+
+        if cLevelMatches <= cMoveMatches:
+            return 'movesfirst'
+        else:
+            return 'levelsfirst'
 
     # XXX unused
     def lower_bounds(self):
@@ -179,6 +238,38 @@ class HeuristicMoveAligner(MoveAligner):
                 aui.append(None)
         aui.reverse()
         return aui
+
+
+    #def lock_low_levels(self):
+        # Skip Lv.1 moves
+        #iLeft = iRight = 0
+        #while any(key_levels(x) == 1 for x in left[iLeft] if x is not None):
+        #    iLeft += 1
+        #while key_levels(right[iRight]) == 1:
+        #    iRight += 1
+        #print(iLeft, iRight)
+        #lock_while(alignment, left, right, iLeft, iRight, key_levels)
+
+    def lock_both(self):
+        """locks when both the levels and moves match.
+
+        this must be called first. assumes that alignment is empty."""
+        alignment = self.alignment
+
+        liLeft = 0
+        cLeft = len(self.left)
+        for iRight in range(len(self.right)):
+            for iLeft in range(liLeft, cLeft):
+                if self.match(iLeft, iRight):
+                    alignment.append((iLeft, iRight))
+                    liLeft = iLeft + 1
+                    break
+            else:
+                alignment.append((None, iRight))
+
+        for iRight in range(iRight + 1, len(self.right)):
+            alignment.append((None, iRight))
+
 
     def lock(self, key):
         alignment = self.alignment
@@ -220,97 +311,6 @@ class HeuristicMoveAligner(MoveAligner):
 
         return
 
-    def align(self):
-        """
-        left :: [[(level, move)]]
-        right :: [(level, move)]
-        """
-        left = self.left
-        right = self.right
-
-        cMatches = 0
-        smLeft = set(m[1] for am in left for m in am if m)
-        smRight = set(name for _, name in right)
-        cMatches = len(smLeft & smRight)
-
-        if cMatches < (len(left) + len(right)) / 4:
-            self.align_simple()
-        else:
-            self.align_full()
-
-        self.fill_alignment()
-        self.fill_gaps()
-        self.sort_levels()
-
-        return self.apply_alignment()
-
-    def align_simple(self):
-        """
-        only matches on levels
-        """
-        alignment = self.alignment
-        left = self.left
-        right = self.right
-
-        # lock when moves match
-        liLeft = 0
-        for iRight in range(len(right)):
-            for iLeft in range(liLeft, len(left)):
-                if self.match(iLeft, iRight):
-                    alignment.append((iLeft, iRight))
-                    liLeft = iLeft + 1
-                    break
-            else:
-                alignment.append((None, iRight))
-        # add extras
-        for iRight in range(iRight + 1, len(right)):
-            alignment.append((None, iRight))
-
-        self.lock(key_levels)
-
-    def align_full(self):
-        """
-        the full algorithm
-        """
-        alignment = self.alignment
-        left = self.left
-        right = self.right
-
-        # lock when moves match
-        liLeft = 0
-        for iRight in range(len(right)):
-            for iLeft in range(liLeft, len(left)):
-                if self.match(iLeft, iRight):
-                    alignment.append((iLeft, iRight))
-                    liLeft = iLeft + 1
-                    break
-            else:
-                alignment.append((None, iRight))
-        # add extras
-        for iRight in range(iRight + 1, len(right)):
-            alignment.append((None, iRight))
-
-        #iLeft = iRight = 0
-        #while any(key_levels(x) == 1 for x in left[iLeft] if x is not None):
-        #    iLeft += 1
-        #while key_levels(right[iRight]) == 1:
-        #    iRight += 1
-        #print(iLeft, iRight)
-
-        #movesfirst = alignment
-        #lock_while(alignment, left, right, iLeft, iRight, key_levels)
-        self.lock(key_moves)
-        self.lock(key_levels)
-
-        #levelsfirst = alignment
-        #lock(left, right, levelsfirst, key_levels)
-        #lock(left, right, levelsfirst, key_moves)
-
-        #alignment = movesfirst
-        #alignment = levelsfirst
-
-        #print(alignment)
-
     def fill_alignment(self):
         left = self.left
         right = self.right
@@ -339,10 +339,15 @@ class NeedlemanWunschMoveAligner(MoveAligner):
     def __init__(self, left, right):
         self.left = left
         self.right = right
-        self.matrix = NeedlemanWunschMatrix(len(left), len(right),
+
+    def clear(self):
+        self.alignment = []
+        self.matrix = NeedlemanWunschMatrix(len(self.left), len(self.right),
                                             default=self.zero)
 
     def align(self):
+        self.clear()
+
         self.compute_matrix()
         self.compute_alignment()
 
@@ -408,6 +413,7 @@ class NeedlemanWunschMoveAligner(MoveAligner):
         alignment.reverse()
         self.alignment = alignment
 
+
 class NeedlemanWunschMatrix(list):
     """A 2-dimensional matrix used in the Needleman-Wunsch algorithm"""
     def __init__(self, m, n, default):
@@ -441,8 +447,8 @@ class NeedlemanWunschMatrix(list):
 def alignn(movesets):
     combined = [[x] for x in movesets[0]]
     for moveset in movesets[1:]:
-        #aligner = HeuristicMoveAligner(combined, moveset)
-        aligner = NeedlemanWunschMoveAligner(combined, moveset)
+        aligner = HeuristicMoveAligner(combined, moveset)
+        #aligner = NeedlemanWunschMoveAligner(combined, moveset)
         combined = aligner.align()
     return combined
 
