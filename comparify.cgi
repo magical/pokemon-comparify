@@ -17,7 +17,8 @@ import dump_evchain
 
 def cgi_main():
     if os.environ.get('REQUEST_METHOD', "GET") != "GET":
-        print("Status: 400")
+        print("Status: 405")
+        print("Allow: GET")
         end_headers()
         return
 
@@ -81,9 +82,44 @@ def fmt_plaintext(moves):
 
 def fmt_html(moves):
     pokemon, movesets = zip(*moves)
-    time, combined = comparify.time_alignn(moves)
-    time *= 1000
     title = "%s Comparify" % "|".join(name for _, name in pokemon)
+    time, combined = comparify.time_align(movesets,
+                                          comparify.HeuristicMoveAligner)
+    time2, combined2 = comparify.time_align(movesets,
+                                            comparify.NeedlemanWunschMoveAligner)
+    if time < time2:
+        multiplier = (time2 / time) - 1
+        slower = "slower"
+        faster = "faster"
+    else:
+        multiplier = (time / time2) - 1
+        slower = "faster"
+        faster = "slower"
+    time *= 1000
+    time2 *= 1000
+
+    if combined == combined2:
+        table = fmt_table(pokemon, combined)
+        return dedent("""\
+        <!doctype html>
+        <title>{title}</title>
+        {table}
+        <p>{time:.3f} milliseconds vs {time2:.3f} milliseconds
+           ({multiplier:.3f}\xd7 {faster})</p>
+        """).format(**locals())
+    else:
+        table = fmt_table(pokemon, combined)
+        table2 = fmt_table(pokemon, combined2)
+        return dedent("""\
+        <!doctype html>
+        <title>{title}</title>
+        {table}
+        <p>{time:f} milliseconds ({multiplier:.3f}\xd7 {faster})</p>
+        {table2}
+        <p>{time2:f} milliseconds ({multiplier:.3f}\xd7 {slower})</p>
+        """).format(**locals())
+
+def fmt_table(pokemon, combined):
     colgroups = "<colgroup span=2>" * len(pokemon)
     thead = "".join("<th colspan=2>"+name for _, name in pokemon)
     def fmt_move(move):
@@ -92,8 +128,6 @@ def fmt_html(moves):
             "<td><td>")
     rows = "\n".join("<tr>" + "".join(map(fmt_move, row)) for row in combined)
     return dedent("""\
-    <!doctype html>
-    <title>{title}</title>
     <table>
     {colgroups}
     <thead>
@@ -101,7 +135,6 @@ def fmt_html(moves):
     <tbody>
     {rows}
     </table>
-    <p>{time:f} milliseconds</p>
     """).format(**locals())
 
 

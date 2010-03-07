@@ -46,7 +46,7 @@ Pass 5 does a sort so that levels are more or less in order.
 
 """
 
-# Pardon my Hungarian. Here is a cheat sheet:
+# Pardon my Hungarian. Here is the translation:
 #
 # i - an index
 # c - a count, size, length
@@ -425,17 +425,16 @@ class NeedlemanWunschMatrix(list):
 
 
 
-def alignn(movesets):
+def align(movesets, aligner_class=HeuristicMoveAligner):
     combined = [[x] for x in movesets[0]]
     for moveset in movesets[1:]:
-        aligner = HeuristicMoveAligner(combined, moveset)
-        #aligner = NeedlemanWunschMoveAligner(combined, moveset)
+        aligner = aligner_class(combined, moveset)
         combined = aligner.align()
     return combined
 
 
 from time import time
-def time_align(movesets, ia, ib):
+def time_align2(movesets, ia, ib):
     a = movesets[ia][1]
     b = movesets[ib][1]
 
@@ -447,11 +446,9 @@ def time_align(movesets, ia, ib):
     time_b = time()
     return (time_b - time_a), combined
 
-def time_alignn(movesets):
-    movesets = [x[1] for x in movesets]
-
+def time_align(movesets, aligner_class=HeuristicMoveAligner):
     time_a = time()
-    combined = alignn(movesets)
+    combined = align(movesets, aligner_class)
     time_b = time()
     return (time_b - time_a), combined
 
@@ -459,11 +456,12 @@ def time_alignn(movesets):
 if __name__ == '__main__':
     from pprint import pprint
     def do_time(*args):
-        time, combined = time_align(*args)
+        time, combined = time_align2(*args)
         pprint(combined)
         print ("%f seconds\n" % time)
-    def do_time_n(*args):
-        time, combined = time_alignn(*args)
+    def do_time_n(moves, *args):
+        pokemon, movesets = zip(*moves)
+        time, combined = time_align(movesets, *args)
         pprint(combined)
         print ("%f seconds\n" % time)
 
