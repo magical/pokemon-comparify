@@ -171,49 +171,30 @@ class HeuristicMoveAligner(MoveAligner):
 
         self.lock_both()
 
-        strategy = self.strategy = self.choose_strategy()
+        movesfirst = self.alignment
+        levelsfirst = list(self.alignment)
 
-        print(strategy)
-        if strategy == 'movesfirst':
-            self.lock(key_moves)
-            self.lock(key_levels)
-        elif strategy == 'levelsfirst':
-            self.lock(key_levels)
-            self.lock(key_moves)
-        else:
-            raise ValueError("Unknown strategy", strategy)
-
+        self.lock(key_moves)
+        self.lock(key_levels)
         self.fill_alignment()
+
+        self.alignment = levelsfirst
+        self.lock(key_levels)
+        self.lock(key_moves)
+        self.fill_alignment()
+
+        if len(levelsfirst) < len(movesfirst):
+            self.alignment = levelsfirst
+            self.strategy = 'levelsfirst'
+        else:
+            self.alignment = movesfirst
+            self.strategy = 'movesfirst'
+        #print (self.strategy)
+
         self.fill_gaps()
         #self.sort_levels()
 
         return self.apply_alignment()
-
-    def choose_strategy(self):
-        left = self.left
-        right = self.right
-
-        slLeft = set()
-        smLeft = set()
-        for am in left:
-            for m in am:
-                if m:
-                    level, move = m
-                    slLeft.add(level)
-                    smLeft.add(move)
-        slRight = set()
-        smRight = set()
-        for level, move in right:
-            slRight.add(level)
-            smRight.add(move)
-
-        cLevelMatches = len(slLeft & slRight)
-        cMoveMatches = len(smLeft & smRight)
-
-        if cLevelMatches <= cMoveMatches:
-            return 'movesfirst'
-        else:
-            return 'levelsfirst'
 
     # XXX unused
     def lower_bounds(self):
