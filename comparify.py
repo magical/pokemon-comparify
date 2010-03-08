@@ -117,36 +117,36 @@ class MoveAligner:
                         i -= 1
             i += 1
 
-    def _merge_gap(self, iLeft, cGap):
+    def _merge_gap(self, iRight, cGap):
         alignment = self.alignment
-        for i in range(iLeft, iLeft + cGap):
-            alignment[i] = alignment[i+cGap][0], alignment[i][1]
+        for i in range(iRight, iRight + cGap):
+            alignment[i] = alignment[i][0], alignment[i+cGap][1]
 
-        del alignment[iLeft+cGap:iLeft+cGap+cGap]
+        del alignment[iRight+cGap:iRight+cGap+cGap]
 
     def fill_gaps(self):
         alignment = self.alignment
         left = self.left
         right = self.right
 
-        cGapLeft = 0
-        iAlignmentLeft = 0
-        while iAlignmentLeft < len(alignment):
-            if alignment[iAlignmentLeft][0] is None:
-                assert alignment[iAlignmentLeft][1] is not None
-                cGapLeft += 1
-            elif cGapLeft:
-                cGapRight = 0
-                for iAlignmentRight in range(iAlignmentLeft, len(alignment)):
-                    if alignment[iAlignmentRight][1] is None:
-                        cGapRight += 1
+        cGapRight = 0
+        iAlignmentRight = 0
+        while iAlignmentRight < len(alignment):
+            if alignment[iAlignmentRight][1] is None:
+                assert alignment[iAlignmentRight][0] is not None
+                cGapRight += 1
+            elif cGapRight:
+                cGapLeft = 0
+                for iAlignmentLeft in range(iAlignmentRight, len(alignment)):
+                    if alignment[iAlignmentLeft][0] is None:
+                        cGapLeft += 1
                     else:
                         break
-                if cGapLeft == cGapRight:
-                    self._merge_gap(iAlignmentLeft - cGapLeft, cGapLeft)
-                    iAlignmentLeft -= 1
-                cGapLeft = 0
-            iAlignmentLeft += 1
+                if cGapRight == cGapLeft:
+                    self._merge_gap(iAlignmentRight - cGapRight, cGapRight)
+                    iAlignmentRight -= 1
+                cGapRight = 0
+            iAlignmentRight += 1
 
     def apply_alignment(self):
         left = self.left
@@ -385,24 +385,24 @@ class NeedlemanWunschMoveAligner(MoveAligner):
                                  self.similarity(iLeft, iRight)):
                 alignment.append((iLeft, iRight))
                 iLeft, iRight = iLeft-1, iRight-1
-            elif score == self.add(matrix[iLeft-1,iRight],
-                                   self.gap_penalty):
-                alignment.append((iLeft, None))
-                iLeft -= 1
             elif score == self.add(matrix[iLeft,iRight-1],
                                    self.gap_penalty):
                 alignment.append((None, iRight))
                 iRight -= 1
+            elif score == self.add(matrix[iLeft-1,iRight],
+                                   self.gap_penalty):
+                alignment.append((iLeft, None))
+                iLeft -= 1
             else:
                 raise RuntimeError
-
-        while -1 < iLeft:
-            alignment.append((iLeft,None))
-            iLeft -= 1
 
         while -1 < iRight:
             alignment.append((None,iRight))
             iRight -= 1
+
+        while -1 < iLeft:
+            alignment.append((iLeft,None))
+            iLeft -= 1
 
         alignment.reverse()
         self.alignment = alignment
