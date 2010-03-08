@@ -513,11 +513,117 @@ class NeedlemanWunschMatrix(list):
         list.__setitem__(self, i*self.n+j, v)
 
     def __repr__(self):
-        return 'Matrix(%r)' % list.__repr__(self)
+        return 'Matrix(%s)' % list.__repr__(self)
 
     def __str__(self):
         return "\n".join(" ".join("%2d" % self[i, j] for j in range(self.n)) for i in range(self.m))
 
+
+class DTWMoveAligner(MoveAligner):
+    zero = 0
+    inf = 100000
+
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+    def clear(self):
+        self.alignment = []
+        self.matrix = DTWMatrix(len(self.left), len(self.right),
+                                inf=self.inf, zero=self.zero)
+
+    def align(self):
+        self.clear()
+
+        self.compute_matrix()
+        self.compute_alignment()
+
+        #self.sort_levels()
+        #self.fill_gaps()
+
+        return self.apply_alignment()
+
+    def distance(self, iLeft, iRight):
+        mLeft = next(m for m in reversed(self.left[iLeft]) if m is not None)
+        return abs(key_levels(mLeft) -
+                   key_levels(self.right[iRight]))
+
+    def add(self, a, b):
+        return a + b
+
+    def compute_matrix(self):
+        m = self.matrix
+        for iLeft in range(len(self.left)):
+            for iRight in range(len(self.right)):
+                cost = self.distance(iLeft, iRight)
+                m[iLeft,iRight] = self.add(cost, min(
+                    m[iLeft-1,iRight-1],
+                    m[iLeft-1,iRight],
+                    m[iLeft,iRight-1],
+                ))
+
+    def compute_alignment(self):
+        matrix = self.matrix
+
+        iLeft, iRight = len(self.left)-1, len(self.right)-1
+        alignment = []
+        while 0 <= iLeft and 0 <= iRight:
+            score = matrix[iLeft, iRight]
+            cost = self.distance(iLeft, iRight)
+            if score == self.add(cost, matrix[iLeft-1,iRight-1]):
+                alignment.append((iLeft, iRight))
+                iLeft, iRight = iLeft-1, iRight-1
+            elif score == self.add(cost, matrix[iLeft,iRight-1]):
+                alignment.append((None, iRight))
+                iRight -= 1
+            elif score == self.add(cost, matrix[iLeft-1,iRight]):
+                alignment.append((iLeft, None))
+                iLeft -= 1
+            else:
+                raise Exception #(score, cost, iLeft, iRight, self)
+
+        while 0 <= iRight:
+            alignment.append((None,iRight))
+            iRight -= 1
+
+        while 0 <= iLeft:
+            alignment.append((iLeft,None))
+            iLeft -= 1
+
+        alignment.reverse()
+        self.alignment = alignment
+
+
+class DTWMatrix(list):
+    """A 2-dimensional matrix used in the Dynamic Time Warping algorithm"""
+    def __init__(self, m, n, inf, zero=0):
+        self.m = m
+        self.n = n
+        self.inf = inf
+        self.zero = zero
+        list.__init__(self, [None] * m * n)
+
+    def __getitem__(self, ij):
+        i, j = ij
+        if ij == (-1, -1):
+            return self.zero
+        if i == -1 or j == -1:
+            return self.inf
+        if self.m < i or self.n < j:
+            raise IndexError(ij)
+        return list.__getitem__(self, i*self.n+j)
+
+    def __setitem__(self, ij, v):
+        i, j = ij
+        if not (0 <= i < self.m and 0 <= j < self.n):
+            raise IndexError(ij)
+        list.__setitem__(self, i*self.n+j, v)
+
+    def __repr__(self):
+        return 'Matrix(%s)' % list.__repr__(self)
+
+    def __str__(self):
+        return "\n".join(" ".join("%2d" % self[i, j] for j in range(self.n)) for i in range(self.m))
 
 
 def align(movesets, aligner_class=HeuristicMoveAligner):
