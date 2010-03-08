@@ -461,7 +461,7 @@ class NeedlemanWunschMoveAligner(MoveAligner):
 
         iLeft, iRight = len(self.left)-1, len(self.right)-1
         alignment = []
-        while -1 < iLeft and -1 < iRight:
+        while 0 <= iLeft and 0 <= iRight:
             score = matrix[iLeft, iRight]
             if score == self.add(matrix[iLeft-1,iRight-1],
                                  self.similarity(iLeft, iRight)):
@@ -476,13 +476,13 @@ class NeedlemanWunschMoveAligner(MoveAligner):
                 alignment.append((iLeft, None))
                 iLeft -= 1
             else:
-                raise RuntimeError
+                raise Exception
 
-        while -1 < iRight:
+        while 0 <= iRight:
             alignment.append((None,iRight))
             iRight -= 1
 
-        while -1 < iLeft:
+        while 0 <= iLeft:
             alignment.append((iLeft,None))
             iLeft -= 1
 
