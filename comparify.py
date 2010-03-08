@@ -57,6 +57,19 @@ Pass 5 does a sort so that levels are more or less in order.
 # s - a set
 # m - move
 
+try:
+    next
+except NameError:
+    def next(it):
+        return it.__next__()
+
+try:
+    range = xrange
+except NameError:
+    pass
+
+# No effect in py3
+__metaclass__ = type
 
 class MoveAligner:
     __metaclass__ = type
