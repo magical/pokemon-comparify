@@ -134,7 +134,24 @@ def fmt_table(pokemon, combined):
         return ("<td>{}<td>{}".format(*move)
             if move is not None else
             "<td><td>")
-    rows = "\n".join("<tr>" + "".join(map(fmt_move, row)) for row in combined)
+    def fmt_move_bold(move):
+        return ("<td>{}<td><b>{}</b>".format(*move)
+            if move is not None else
+            "<td><td>")
+    def fmt_move_italic(move):
+        return ("<td>{}<td><i>{}</i>".format(*move)
+            if move is not None else
+            "<td><td>")
+    def fmt_row(row):
+        if len(set(x[1] for x in row if x is not None)) == 1:
+            if not any(x is None for x in row):
+                return "<tr>" + "".join(map(fmt_move_bold, row))
+            else:
+                return "<tr>" + "".join(map(fmt_move_italic, row))
+        else:
+            return "<tr>" + "".join(map(fmt_move, row))
+
+    rows = "\n".join(fmt_row(row) for row in combined)
     return dedent("""\
     <table>
     {colgroups}
