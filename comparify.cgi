@@ -84,7 +84,7 @@ def fmt_html(moves):
     pokemon, movesets = zip(*moves)
     title = "%s Comparify" % "|".join(name for _, name in pokemon)
     time, combined = comparify.time_align(movesets,
-                                          comparify.HeuristicMoveAligner)
+                                          comparify.HeuristicMoveAlignerRTL)
     time2, combined2 = comparify.time_align(movesets,
                                             comparify.NeedlemanWunschMoveAligner)
     if time < time2:

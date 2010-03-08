@@ -72,7 +72,7 @@ except NameError:
 __metaclass__ = type
 
 class MoveAligner:
-    __metaclass__ = type
+    style = 'LTR'
 
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, vars(self))
@@ -108,7 +108,7 @@ class MoveAligner:
                 mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
                 if mLeft[0] <= right[alignment[i][1]][0]:
                     r = i
-                    while li < r and mLeft[0] <= right[alignment[r][1]][0]:
+                    while li < r and mLeft[0] < right[alignment[r][1]][0]:
                         r -= 1
                     if r != i:
                         m = alignment.pop(i + 1)
@@ -202,10 +202,10 @@ class HeuristicMoveAligner(MoveAligner):
         else:
             self.alignment = movesfirst
             self.strategy = 'movesfirst'
-        #print (self.strategy)
+        print (self.strategy)
 
+        self.sort_levels()
         self.fill_gaps()
-        #self.sort_levels()
 
         return self.apply_alignment()
 
@@ -234,15 +234,15 @@ class HeuristicMoveAligner(MoveAligner):
         return aui
 
 
-    #def lock_low_levels(self):
-        # Skip Lv.1 moves
-        #iLeft = iRight = 0
-        #while any(key_levels(x) == 1 for x in left[iLeft] if x is not None):
-        #    iLeft += 1
-        #while key_levels(right[iRight]) == 1:
-        #    iRight += 1
-        #print(iLeft, iRight)
-        #lock_while(alignment, left, right, iLeft, iRight, key_levels)
+    def skip_lv1(self):
+        iLeft = iRight = 0
+        for iLeft in range(len(self.left)):
+            if any(key_levels(x) == 1 for x in self.left[iLeft] if x is not None):
+                break
+        for iRight in range(len(self.right)):
+            if key_levels(self.right[iRight]) == 1:
+                break
+        return iLeft, iRight
 
     def lock_both(self):
         """locks when both the levels and moves match.
@@ -309,6 +309,38 @@ class HeuristicMoveAligner(MoveAligner):
         left = self.left
         right = self.right
 
+        uiLeft = len(left)-1
+        newalignment = []
+        for iLeft, iRight in reversed(self.alignment):
+            if iLeft is None:
+                newalignment.append((None, iRight))
+            else:
+                while iLeft < uiLeft:
+                    newalignment.append((uiLeft, None))
+                    uiLeft -= 1
+                newalignment.append((iLeft, iRight))
+                uiLeft = iLeft - 1
+        for iLeft in range(uiLeft):
+            newalignment.append((iLeft, None))
+
+        newalignment.reverse()
+        self.alignment[:] = newalignment
+
+
+class HeuristicMoveAlignerRTL(HeuristicMoveAligner):
+    style = 'RTL'
+    def __init__(self, left, right):
+        """
+        left :: [(level, move)]
+        right :: [[(level, move)]]
+        """
+        self.left = right
+        self.right = left
+
+    def fill_alignment(self):
+        left = self.left
+        right = self.right
+
         liLeft = 0
         newalignment = []
         for iLeft, iRight in self.alignment:
@@ -324,6 +356,56 @@ class HeuristicMoveAligner(MoveAligner):
             newalignment.append((iLeft, None))
 
         self.alignment[:] = newalignment
+
+    def _merge_gap(self, i, cGap):
+        alignment = self.alignment
+        for j in range(i, i + cGap):
+            alignment[j] = alignment[j+cGap][0], alignment[j][1]
+
+        #print (i+cGap,i+cGap*2,alignment[i+cGap:i+cGap*2])
+        del alignment[i+cGap:i+cGap+cGap]
+
+    def fill_gaps(self):
+        alignment = self.alignment
+        left = self.left
+        right = self.right
+
+        cGapLeft = 0
+        iAlignmentLeft = min(self.skip_lv1())
+        while iAlignmentLeft < len(alignment):
+            if alignment[iAlignmentLeft][0] is None:
+                assert alignment[iAlignmentLeft][1] is not None
+                cGapLeft += 1
+            elif cGapLeft:
+                cGapRight = 0
+                for iAlignmentRight in range(iAlignmentLeft, len(alignment)):
+                    if alignment[iAlignmentRight][1] is None:
+                        cGapRight += 1
+                    else:
+                        break
+                if cGapLeft == cGapRight:
+                    assert cGapLeft != 0
+                    print (iAlignmentLeft, cGapLeft)
+                    self._merge_gap(iAlignmentLeft - cGapLeft, cGapLeft)
+                    iAlignmentLeft -= 1
+                cGapLeft = 0
+            iAlignmentLeft += 1
+
+    def apply_alignment(self):
+        left = self.right
+        right = self.left
+        final = []
+
+        cm = len(right[0])
+        for iRight, iLeft in self.alignment:
+            if iLeft is None:
+                final.append([None] + right[iRight])
+            elif iRight is None:
+                final.append([left[iLeft]] + [None]*cm)
+            else:
+                final.append([left[iLeft]] + right[iRight])
+
+        return final
 
 
 class NeedlemanWunschMoveAligner(MoveAligner):
@@ -345,8 +427,8 @@ class NeedlemanWunschMoveAligner(MoveAligner):
         self.compute_matrix()
         self.compute_alignment()
 
-        self.fill_gaps()
         #self.sort_levels()
+        #self.fill_gaps()
 
         return self.apply_alignment()
 
@@ -439,10 +521,16 @@ class NeedlemanWunschMatrix(list):
 
 
 def align(movesets, aligner_class=HeuristicMoveAligner):
-    combined = [[x] for x in movesets[0]]
-    for moveset in movesets[1:]:
-        aligner = aligner_class(combined, moveset)
-        combined = aligner.align()
+    if aligner_class.style == 'LTR':
+        combined = [[x] for x in movesets[0]]
+        for moveset in movesets[1:]:
+            aligner = aligner_class(combined, moveset)
+            combined = aligner.align()
+    elif aligner_class.style == 'RTL':
+        combined = [[x] for x in movesets[-1]]
+        for moveset in movesets[-2::-1]:
+            aligner = aligner_class(moveset, combined)
+            combined = aligner.align()
     return combined
 
 
