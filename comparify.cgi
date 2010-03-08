@@ -61,7 +61,7 @@ def page_compare(fs):
     else:
         content_type("text/html")
         end_headers()
-        print(fmt_html(moves))
+        print(fmt_html(moves, pokemon_id))
 
 def content_type(type):
     if type.startswith("text/") and "charset" not in type:
@@ -80,9 +80,15 @@ def fmt_plaintext(moves):
     %s
     """) % (", ".join(name for _, name in pokemon), pformat(combined))
 
-def fmt_html(moves):
+def fmt_html(moves, current_id):
     pokemon, movesets = zip(*moves)
     title = "%s Comparify" % "|".join(name for _, name in pokemon)
+    prev_id, next_id = get_next_prev(pokemon, current_id)
+    next = prev = ""
+    if prev_id:
+        prev = """<link rel=prev href="?pokemon_id=%d">""" % prev_id
+    if next_id:
+        next = """<link rel=next href="?pokemon_id=%d">""" % next_id
     time, combined = comparify.time_align(movesets,
                                           comparify.HeuristicMoveAlignerRTL)
     time2, combined2 = comparify.time_align(movesets,
@@ -103,6 +109,7 @@ def fmt_html(moves):
         return dedent("""\
         <!doctype html>
         <title>{title}</title>
+        {prev}{next}
         {table}
         <p>{time:.3f} milliseconds vs {time2:.3f} milliseconds
            ({multiplier:.3f}\xd7 {faster})</p>
@@ -113,6 +120,7 @@ def fmt_html(moves):
         return dedent("""\
         <!doctype html>
         <title>{title}</title>
+        {prev}{next}
         {table}
         <p>{time:f} milliseconds ({multiplier:.3f}\xd7 {faster})</p>
         {table2}
@@ -136,6 +144,19 @@ def fmt_table(pokemon, combined):
     {rows}
     </table>
     """).format(**locals())
+
+def get_next_prev(pokemon, current_id):
+    ids = set(x[0] for x in pokemon)
+    prev_id = next_id = current_id
+    while prev_id in ids:
+        prev_id -= 1
+    while next_id in ids:
+        next_id += 1
+    if prev_id < 1:
+        prev_id = None
+    if 493 < next_id:
+        next_id = None
+    return prev_id, next_id
 
 
 if __name__ == '__main__':
