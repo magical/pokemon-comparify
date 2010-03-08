@@ -496,7 +496,7 @@ class NeedlemanWunschMatrix(list):
         self.m = m
         self.n = n
         self.default = default
-        list.__init__(self, [0] * m * n)
+        list.__init__(self, [None] * m * n)
 
     def __getitem__(self, ij):
         i, j = ij
