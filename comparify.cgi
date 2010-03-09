@@ -12,7 +12,7 @@ from pprint import pprint, pformat
 from textwrap import dedent
 
 import comparify
-import dump_evchain
+import pokemon
 
 
 def cgi_main():
@@ -38,8 +38,7 @@ def page_index(fs):
     </form>
     """
 
-    conn = dump_evchain.connect()
-    all_pokemon = dump_evchain.all_pokemon(conn)
+    all_pokemon = pokemon.all_pokemon()
     options = "".join(
         "<option value={id}>{name}".format(id=p[0], name=p[1])
         for p in all_pokemon)
@@ -49,11 +48,16 @@ def page_index(fs):
     print(template.format(**locals()))
 
 def page_compare(fs):
-    pokemon_id = int(fs['pokemon_id'].value)
-    conn = dump_evchain.connect()
-    moves = dump_evchain.extract_moves(conn, pokemon_id)
+    pokemon_ids = list(map(int, fs.getlist('pokemon_id')))
+
+    if len(pokemon_ids) == 1:
+        pokemon_id = pokemon_ids[0]
+        evid = pokemon.evid_from_pokemonid(pokemon_id)
+        moves = pokemon.moves_from_evid(evid)
+    else:
+        pokemon_id = None
+        moves = [pokemon.moves_from_pokemonid(id) for id in pokemon_ids]
     accept = os.environ.get('HTTP_ACCEPT', '')
-    del conn
     if not accept:
         content_type("text/plain")
         end_headers()
@@ -80,15 +84,16 @@ def fmt_plaintext(moves):
     %s
     """) % (", ".join(name for _, name in pokemon), pformat(combined))
 
-def fmt_html(moves, current_id):
+def fmt_html(moves, current_id=None):
     pokemon, movesets = zip(*moves)
     title = "%s Comparify" % "|".join(name for _, name in pokemon)
-    prev_id, next_id = get_next_prev(pokemon, current_id)
     next = prev = ""
-    if prev_id:
-        prev = """<link rel=prev href="?pokemon_id=%d">""" % prev_id
-    if next_id:
-        next = """<link rel=next href="?pokemon_id=%d">""" % next_id
+    if current_id:
+        prev_id, next_id = get_next_prev(pokemon, current_id)
+        if prev_id:
+            prev = """<link rel=prev href="?pokemon_id=%d">""" % prev_id
+        if next_id:
+            next = """<link rel=next href="?pokemon_id=%d">""" % next_id
     time, combined = comparify.time_align(movesets,
                                           comparify.HeuristicMoveAlignerRTL)
     time2, combined2 = comparify.time_align(movesets,
