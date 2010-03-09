@@ -1,6 +1,19 @@
-#!/usr/bin/env python
-
 """
+comparify.py - align pok\xe9mon movesets
+
+This module should be compatible with python 2.x >= 2.5 and python 3.x >= 3.0.
+
+Classes:
+    MoveAligner - Base class for all the move aligners
+
+    HeuristicMoveAligner - a heuristic algorithm developed by myself
+    NeedlemanWunschMoveAligner - Needleman-Wunsch global sequence alignment
+    DTWMoveAligner - dynamic time warping
+
+Functions:
+    align - align a list of movesets
+
+
 Types of level-up move changes in evolution groups
 ==================================================
 
@@ -24,26 +37,6 @@ Metamorphosis
 Added attack at level of evolution
     Example: Ninjask
     
-    
-
-HOW THE ALGORITHM WORKS
-
-Generally, it works by going through the list of moves and "locking" them
-when it feels it has a good match.
-
-It makes 5 passes through the move list, with decreasing standards for what
-is a match. Passes 2 and 3 are swapped if the movesets have move levels in
-common than moves in common.
-
-Pass 1 locks when both the level and the move match.
-Pass 2 locks when the move matches.
-Pass 3 locks when the level matches.
-Pass 4 looks for "gaps" where some moves aren't locked. If the gap in
-one list is the same length as the gap in another list, it locks all those
-moves.
-
-Pass 5 does a sort so that levels are more or less in order.
-
 """
 
 # Pardon my Hungarian. Here is the translation:
@@ -168,6 +161,27 @@ key_levels = lambda x: x[0]
 key_moves = lambda x: x[1]
 
 class HeuristicMoveAligner(MoveAligner):
+    """
+    A heuristic approach to pok\xe9mon move alignment.
+
+    HOW THE ALGORITHM WORKS
+
+    Generally, it works by going through the list of moves and "locking" them
+    when it feels it has a good match.
+
+    It makes 5 passes through the move list, with decreasing standards for what
+    is a match. Passes 2 and 3 are swapped if the movesets have move levels in
+    common than moves in common.
+
+    Pass 1 locks when both the level and the move match.
+    Pass 2 locks when the move matches.
+    Pass 3 locks when the level matches.
+    Pass 4 looks for "gaps" where some moves aren't locked. If the gap in
+    one list is the same length as the gap in another list, it locks all those
+    moves.
+
+    Pass 5 does a sort so that levels are more or less in order.
+    """
     def __init__(self, left, right):
         """
         left :: [[(level, move)]]
@@ -409,6 +423,12 @@ class HeuristicMoveAlignerRTL(HeuristicMoveAligner):
 
 
 class NeedlemanWunschMoveAligner(MoveAligner):
+    """
+    Implements global sequence alignment according to the Needleman-Wunsch algorithm.
+
+    http://en.wikipedia.org/wiki/Needleman-Wunsch_algorithm
+
+    """
     zero = (0, 0, 0)
     gap_penalty = (0, 0, 1)
 
@@ -520,6 +540,15 @@ class NeedlemanWunschMatrix(list):
 
 
 class DTWMoveAligner(MoveAligner):
+    """
+    Dynamic Time Warping for pok\xe9mon levels.
+
+    Unfortunately, it doesn't really work. I'm not sure if it's an error
+    in my implementation, or if it just doesn't apply well to this problem.
+
+    http://en.wikipedia.org/wiki/Dynamic_time_warping,
+
+    """
     zero = 0
     inf = 100000
 
