@@ -32,17 +32,40 @@ def page_index(fs):
     template = """\
     <!doctype>
     <title>Comparifier</title>
-    <form>
-    {select}
-    <button type=submit>Go!</button>
-    </form>
+    <p>Compare with family
+     <form>
+      {select1}
+      <button type=submit>Go!</button>
+     </form>
+    <p>Multi compare
+     <form>
+      {select1}
+      {select1}
+      {select2}
+      {select2}
+      <button type=submit>Go!</button>
+     </form>
+    <p>Quicklinks
+     <ul style="list-style: none; padding: 0;">
+      <li><a href="?pokemon_id=144&pokemon_id=145&pokemon_id=146">Articuno | Zapdos | Moltres</a>
+      <li><a href="?pokemon_id=243&pokemon_id=244&pokemon_id=245">Raikou | Entei | Suicune</a>
+      <li><a href="?pokemon_id=249&pokemon_id=250">Lugia | Ho-oh</a>
+      <li><a href="?pokemon_id=377&pokemon_id=378&pokemon_id=379">Regirock | Regiice | Registeel</a>
+      <li><a href="?pokemon_id=380&pokemon_id=381">Latias | Latios</a>
+      <li><a href="?pokemon_id=382&pokemon_id=383&pokemon_id=384">Kyogre | Groudon | Rayquaza</a>
+      <li><a href="?pokemon_id=480&pokemon_id=481&pokemon_id=482">Uxie | Mesprit | Azelf</a>
+      <li><a href="?pokemon_id=483&pokemon_id=484&pokemon_id=487">Dialga | Palkia | Giratina</a>
+      <li><a href="?pokemon_id=488&pokemon_id=491">Cresselia | Darkrai</a>
+      <!--<li><a href="?pokemon_id=&pokemon_id=&pokemon_id="></a>-->
+     </ul>
     """
 
     all_pokemon = pokemon.all_pokemon()
     options = "".join(
         "<option value={id}>{name}".format(id=p[0], name=p[1])
         for p in all_pokemon)
-    select = "<select name=pokemon_id>{}</select>".format(options)
+    select1 = "<select name=pokemon_id>{}</select>".format(options)
+    select2 = "<select name=pokemon_id><option value=\"\">-----------{}</select>".format(options)
     content_type("text/html")
     end_headers()
     print(template.format(**locals()))
