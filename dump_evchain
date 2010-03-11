@@ -7,6 +7,8 @@ if len(sys.argv) < 2:
 
 from pprint import pprint
 import pokemon
-pprint(pokemon.moves_from_pokemonid(sys.argv[1]))
+pokemon_id = sys.argv[1]
+evid = pokemon.evid_from_pokemonid(pokemon_id)
+pprint(pokemon.moves_from_evid(evid))
 
 
