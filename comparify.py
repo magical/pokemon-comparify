@@ -83,41 +83,44 @@ class MoveAligner:
         return False
 
     def sort_levels(self):
-        """basically a bounded insertion sort
-
-        alignment must have been previously passed to fill_alignment
-        """
         alignment = self.alignment
         left = self.left
         right = self.right
 
+        def key(x):
+            l, r = x
+            if l is not None:
+                return key_levels(next(m for m in reversed(left[l]) if m is not None))
+            elif r is not None:
+                return key_levels(right[r])
+            raise ValueError
+
         i = 0
         li = 0
-        while i + 1 < len(alignment):
-            if alignment[i][0] is not None:
-                li = i
-            elif alignment[i][1] is not None \
-                and alignment[i + 1][1] is None:
-                mLeft = next(m for m in reversed(left[alignment[i + 1][0]]) if m is not None)
-                if mLeft[0] <= right[alignment[i][1]][0]:
-                    r = i
-                    while li < r and mLeft[0] < right[alignment[r][1]][0]:
-                        r -= 1
-                    if r != i:
-                        m = alignment.pop(i + 1)
-                        alignment.insert(r + 1, m)
-                        li = r + 1
-                        i -= 1
-            i += 1
+        while i < len(alignment):
+            if None not in alignment[i]:
+                li = i + 1
+                i += 1
+                continue
+            ui = len(alignment)
+            for j in range(li, ui):
+                if None not in alignment[j]:
+                    ui = j
+                    break
+            if li < ui and 1 < (ui - li):
+                alignment[li:ui] = sorted(alignment[li:ui], key=key)
+                i = ui
+            else:
+                i += 1
 
-    def _merge_gap(self, iRight, cGap):
+    def _merge_gap_left(self, iRight, cGap):
         alignment = self.alignment
         for i in range(iRight, iRight + cGap):
             alignment[i] = alignment[i][0], alignment[i+cGap][1]
 
         del alignment[iRight+cGap:iRight+cGap+cGap]
 
-    def fill_gaps(self):
+    def fill_gaps_left(self):
         alignment = self.alignment
         left = self.left
         right = self.right
@@ -135,11 +138,48 @@ class MoveAligner:
                         cGapLeft += 1
                     else:
                         break
-                if cGapRight == cGapLeft:
-                    self._merge_gap(iAlignmentRight - cGapRight, cGapRight)
+                if cGapLeft == cGapRight:
+                    assert cGapLeft != 0
+                    self._merge_gap_left(iAlignmentRight - cGapRight, cGapRight)
                     iAlignmentRight -= 1
                 cGapRight = 0
             iAlignmentRight += 1
+
+    def _merge_gap_right(self, iLeft, cGap):
+        alignment = self.alignment
+        for i in range(iLeft, iLeft + cGap):
+            alignment[i] = alignment[i+cGap][0], alignment[i][1]
+
+        del alignment[iLeft+cGap:iLeft+cGap+cGap]
+
+    def fill_gaps_right(self):
+        alignment = self.alignment
+        left = self.left
+        right = self.right
+
+        cGapLeft = 0
+        iAlignmentLeft = min(self.skip_lv1())
+        while iAlignmentLeft < len(alignment):
+            if alignment[iAlignmentLeft][0] is None:
+                assert alignment[iAlignmentLeft][1] is not None
+                cGapLeft += 1
+            elif cGapLeft:
+                cGapRight = 0
+                for iAlignmentRight in range(iAlignmentLeft, len(alignment)):
+                    if alignment[iAlignmentRight][1] is None:
+                        cGapRight += 1
+                    else:
+                        break
+                if cGapLeft == cGapRight:
+                    assert cGapLeft != 0
+                    self._merge_gap_right(iAlignmentLeft - cGapLeft, cGapLeft)
+                    iAlignmentLeft -= 1
+                cGapLeft = 0
+            iAlignmentLeft += 1
+
+    def fill_gaps(self):
+        self.fill_gaps_left()
+        self.fill_gaps_right()
 
     def apply_alignment(self):
         left = self.left
@@ -156,6 +196,16 @@ class MoveAligner:
                 final.append(left[iLeft] + [right[iRight]])
 
         return final
+
+    def skip_lv1(self):
+        iLeft = iRight = 0
+        for iLeft in range(len(self.left)):
+            if any(key_levels(x) == 1 for x in self.left[iLeft] if x is not None):
+                break
+        for iRight in range(len(self.right)):
+            if key_levels(self.right[iRight]) == 1:
+                break
+        return iLeft, iRight
 
 key_levels = lambda x: x[0]
 key_moves = lambda x: x[1]
@@ -204,11 +254,13 @@ class HeuristicMoveAligner(MoveAligner):
         self.lock(key_moves)
         self.lock(key_levels)
         self.fill_alignment()
+        self.fill_gaps()
 
         self.alignment = levelsfirst
         self.lock(key_levels)
         self.lock(key_moves)
         self.fill_alignment()
+        self.fill_gaps()
 
         if len(levelsfirst) < len(movesfirst):
             self.alignment = levelsfirst
@@ -219,7 +271,6 @@ class HeuristicMoveAligner(MoveAligner):
         print (self.strategy)
 
         self.sort_levels()
-        self.fill_gaps()
 
         return self.apply_alignment()
 
@@ -247,17 +298,6 @@ class HeuristicMoveAligner(MoveAligner):
         aui.reverse()
         return aui
 
-
-    def skip_lv1(self):
-        iLeft = iRight = 0
-        for iLeft in range(len(self.left)):
-            if any(key_levels(x) == 1 for x in self.left[iLeft] if x is not None):
-                break
-        for iRight in range(len(self.right)):
-            if key_levels(self.right[iRight]) == 1:
-                break
-        return iLeft, iRight
-
     def lock_both(self):
         """locks when both the levels and moves match.
 
@@ -278,13 +318,11 @@ class HeuristicMoveAligner(MoveAligner):
         for iRight in range(iRight + 1, len(self.right)):
             alignment.append((None, iRight))
 
-
     def lock(self, key):
         alignment = self.alignment
         left = self.left
         right = self.right
         bounds = self.upper_bounds(len(left))
-        #bounds = list(bounds); print(bounds)
 
         liLeft = 0
         for iAlignment, ((iLeft, iRight), uiLeft) \
@@ -351,6 +389,10 @@ class HeuristicMoveAlignerRTL(HeuristicMoveAligner):
         self.left = right
         self.right = left
 
+    def fill_gaps(self):
+        self.fill_gaps_right()
+        self.fill_gaps_left()
+
     def fill_alignment(self):
         left = self.left
         right = self.right
@@ -370,40 +412,6 @@ class HeuristicMoveAlignerRTL(HeuristicMoveAligner):
             newalignment.append((iLeft, None))
 
         self.alignment[:] = newalignment
-
-    def _merge_gap(self, i, cGap):
-        alignment = self.alignment
-        for j in range(i, i + cGap):
-            alignment[j] = alignment[j+cGap][0], alignment[j][1]
-
-        #print (i+cGap,i+cGap*2,alignment[i+cGap:i+cGap*2])
-        del alignment[i+cGap:i+cGap+cGap]
-
-    def fill_gaps(self):
-        alignment = self.alignment
-        left = self.left
-        right = self.right
-
-        cGapLeft = 0
-        iAlignmentLeft = min(self.skip_lv1())
-        while iAlignmentLeft < len(alignment):
-            if alignment[iAlignmentLeft][0] is None:
-                assert alignment[iAlignmentLeft][1] is not None
-                cGapLeft += 1
-            elif cGapLeft:
-                cGapRight = 0
-                for iAlignmentRight in range(iAlignmentLeft, len(alignment)):
-                    if alignment[iAlignmentRight][1] is None:
-                        cGapRight += 1
-                    else:
-                        break
-                if cGapLeft == cGapRight:
-                    assert cGapLeft != 0
-                    print (iAlignmentLeft, cGapLeft)
-                    self._merge_gap(iAlignmentLeft - cGapLeft, cGapLeft)
-                    iAlignmentLeft -= 1
-                cGapLeft = 0
-            iAlignmentLeft += 1
 
     def apply_alignment(self):
         left = self.right
@@ -447,8 +455,8 @@ class NeedlemanWunschMoveAligner(MoveAligner):
         self.compute_matrix()
         self.compute_alignment()
 
-        #self.sort_levels()
-        #self.fill_gaps()
+        self.fill_gaps()
+        self.sort_levels()
 
         return self.apply_alignment()
 
@@ -567,8 +575,8 @@ class DTWMoveAligner(MoveAligner):
         self.compute_matrix()
         self.compute_alignment()
 
-        #self.sort_levels()
         #self.fill_gaps()
+        self.sort_levels()
 
         return self.apply_alignment()
 

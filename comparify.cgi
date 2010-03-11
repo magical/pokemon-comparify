@@ -100,7 +100,7 @@ def end_headers():
 
 def fmt_plaintext(moves):
     pokemon, movesets = zip(*moves)
-    combined = comparify.alignn(movesets)
+    combined = comparify.align(movesets)
     return dedent("""\
     %s
 
