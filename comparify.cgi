@@ -14,6 +14,9 @@ from textwrap import dedent
 import comparify
 import pokemon
 
+version_map = 'rb y gs c rs e frlg dp pt hgss'
+version_map = {v: i+1 for i, v in enumerate(version_map.split())}
+
 
 def cgi_main():
     if os.environ.get('REQUEST_METHOD', "GET") != "GET":
@@ -72,14 +75,19 @@ def page_index(fs):
 
 def page_compare(fs):
     pokemon_ids = list(map(int, fs.getlist('pokemon_id')))
+    ver = fs.getvalue('ver')
+    if ver is not None:
+        ver = version_map[ver]
+    else:
+        ver = pokemon.LATEST_VERSION
 
     if len(pokemon_ids) == 1:
         pokemon_id = pokemon_ids[0]
         evid = pokemon.evid_from_pokemonid(pokemon_id)
-        moves = pokemon.moves_from_evid(evid)
+        moves = pokemon.moves_from_evid(evid, ver)
     else:
         pokemon_id = None
-        moves = [pokemon.moves_from_pokemonid(id) for id in pokemon_ids]
+        moves = [pokemon.moves_from_pokemonid(id, ver) for id in pokemon_ids]
     accept = os.environ.get('HTTP_ACCEPT', '')
     if not accept:
         content_type("text/plain")

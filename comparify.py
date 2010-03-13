@@ -36,7 +36,7 @@ Metamorphosis
 
 Added attack at level of evolution
     Example: Ninjask
-    
+
 """
 
 # Pardon my Hungarian. Here is the translation:
@@ -82,6 +82,11 @@ class MoveAligner:
                 return True
         return False
 
+    def lvalue(self, iLeft):
+        for m in reversed(self.left[iLeft]):
+            if m is not None:
+                return m
+
     def sort_levels(self):
         alignment = self.alignment
         left = self.left
@@ -89,8 +94,10 @@ class MoveAligner:
 
         def key(x):
             l, r = x
+            if None not in x:
+                raise ValueError(x)
             if l is not None:
-                return key_levels(next(m for m in reversed(left[l]) if m is not None))
+                return key_levels(self.lvalue(l))
             elif r is not None:
                 return key_levels(right[r])
             raise ValueError
@@ -429,6 +436,11 @@ class HeuristicMoveAlignerRTL(HeuristicMoveAligner):
 
         return final
 
+    def lvalue(self, iLeft):
+        for m in self.left[iLeft]:
+            if m is not None:
+                return m
+
 
 class NeedlemanWunschMoveAligner(MoveAligner):
     """
@@ -581,7 +593,7 @@ class DTWMoveAligner(MoveAligner):
         return self.apply_alignment()
 
     def distance(self, iLeft, iRight):
-        mLeft = next(m for m in reversed(self.left[iLeft]) if m is not None)
+        mLeft = self.lvalue(iLeft)
         return abs(key_levels(mLeft) -
                    key_levels(self.right[iRight]))
 

@@ -23,7 +23,7 @@ def evid_from_pokemonid(pokemon_id):
     evid = _conn.execute(query, [pokemon_id]).fetchone()[0]
     return evid
 
-def moves_from_evid(evid):
+def moves_from_evid(evid, ver=LATEST_VERSION):
     _connect()
     query = """
         SELECT p.id, p.name, p.evolution_parent_pokemon_id,
@@ -36,7 +36,7 @@ def moves_from_evid(evid):
             AND pm.pokemon_move_method_id = 1
         ORDER BY p.id, pm.level, pm."order"
     """
-    cur = _conn.execute(query, [LATEST_VERSION, evid])
+    cur = _conn.execute(query, [ver, evid])
     movesets = []
     parents = {}
     stages = {None: 0}
@@ -49,8 +49,10 @@ def moves_from_evid(evid):
             return 0
         try:
             evparent = parents[id]
-        except IndexError:
-            raise ValueError('no parent')
+        except KeyError:
+            # This probably means that the pre-evo was introduced in a later
+            # game; therefore, this pokemon is stage 1.
+            return 1
         if evparent not in stages:
             stages[evparent] = stage(evparent)
 
@@ -64,7 +66,7 @@ def moves_from_evid(evid):
 
     return movesets
 
-def moves_from_pokemonid(pokemon_id):
+def moves_from_pokemonid(pokemon_id, ver=LATEST_VERSION):
     _connect()
     query = """
         SELECT p.id, p.name, p.evolution_parent_pokemon_id,
@@ -77,7 +79,7 @@ def moves_from_pokemonid(pokemon_id):
             AND pm.pokemon_move_method_id = 1
         ORDER BY p.id, pm.level, pm."order"
     """
-    cur = _conn.execute(query, [LATEST_VERSION, pokemon_id])
+    cur = _conn.execute(query, [ver, pokemon_id])
     movesets = []
     for (id, name, evparent), group in itertools.groupby(cur, lambda x: (x[:3])):
         movesets.append(((id, name), [x[3:] for x in group]))
