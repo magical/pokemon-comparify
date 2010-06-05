@@ -26,11 +26,13 @@ def evid_from_pokemonid(pokemon_id):
 def moves_from_evid(evid, ver=LATEST_VERSION):
     _connect()
     query = """
-        SELECT p.id, p.name, p.evolution_parent_pokemon_id,
+        SELECT p.id, p.name,
+               pe.from_pokemon_id as evparent,
                pm.level, m.name
         FROM pokemon p
         JOIN pokemon_moves pm ON pm.pokemon_id = p.id
         JOIN moves m ON pm.move_id = m.id
+        LEFT OUTER JOIN pokemon_evolution pe ON pe.to_pokemon_id = p.id
         WHERE pm.version_group_id = ?
             AND p.evolution_chain_id = ?
             AND pm.pokemon_move_method_id = 1
@@ -40,7 +42,7 @@ def moves_from_evid(evid, ver=LATEST_VERSION):
     movesets = []
     parents = {}
     stages = {None: 0}
-    for (id, name, evparent), group in itertools.groupby(cur, lambda x: (x[:3])):
+    for (id, name, evparent), group in itertools.groupby(cur, (lambda x: x[:3])):
         parents[id] = evparent
         movesets.append(((id, name), [x[3:] for x in group]))
 
@@ -69,7 +71,7 @@ def moves_from_evid(evid, ver=LATEST_VERSION):
 def moves_from_pokemonid(pokemon_id, ver=LATEST_VERSION):
     _connect()
     query = """
-        SELECT p.id, p.name, p.evolution_parent_pokemon_id,
+        SELECT p.id, p.name
                pm.level, m.name
         FROM pokemon p
         JOIN pokemon_moves pm ON pm.pokemon_id = p.id
@@ -81,8 +83,8 @@ def moves_from_pokemonid(pokemon_id, ver=LATEST_VERSION):
     """
     cur = _conn.execute(query, [ver, pokemon_id])
     movesets = []
-    for (id, name, evparent), group in itertools.groupby(cur, lambda x: (x[:3])):
-        movesets.append(((id, name), [x[3:] for x in group]))
+    for (id, name), group in itertools.groupby(cur, (lambda x: x[:2])):
+        movesets.append(((id, name), [x[2:] for x in group]))
 
     return movesets[0]
 
