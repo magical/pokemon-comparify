@@ -71,7 +71,7 @@ def moves_from_evid(evid, ver=LATEST_VERSION):
 def moves_from_pokemonid(pokemon_id, ver=LATEST_VERSION):
     _connect()
     query = """
-        SELECT p.id, p.name
+        SELECT p.id, p.name,
                pm.level, m.name
         FROM pokemon p
         JOIN pokemon_moves pm ON pm.pokemon_id = p.id
